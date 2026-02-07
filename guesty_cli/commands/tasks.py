@@ -125,7 +125,7 @@ def run_list(args):
         db = get_db()
         query = """SELECT t.*, l.nickname as listingName 
                    FROM tasks t 
-                   LEFT JOIN listings l ON t.listingId = l.id 
+                   LEFT JOIN listings l ON t.listing_id = l.id 
                    WHERE 1=1"""
         params = []
         
@@ -133,13 +133,13 @@ def run_list(args):
             query += " AND t.status = ?"
             params.append(args.status)
         if args.listing:
-            query += " AND t.listingId = ?"
+            query += " AND t.listing_id = ?"
             params.append(args.listing)
         if args.priority:
             query += " AND t.priority = ?"
             params.append(args.priority)
         
-        query += " ORDER BY t.dueDate, t.priority DESC LIMIT ?"
+        query += " ORDER BY t.due_date, t.priority DESC LIMIT ?"
         params.append(args.limit)
         
         try:

@@ -454,43 +454,81 @@ def _map_record_to_db(record, table, existing_cols, dry_run=False):
                     row[k] = addr.get(k)
             if 'address' in existing_cols and isinstance(addr.get('full'), str):
                 row['address'] = addr.get('full')
-        if 'maxGuests' in existing_cols:
-            row['maxGuests'] = record.get('accommodates')
+        if 'max_guests' in existing_cols:
+            row['max_guests'] = record.get('accommodates')
         if 'active' in existing_cols:
             row['active'] = 1 if record.get('active', True) else 0
+        if 'title' in existing_cols:
+            row['title'] = record.get('title')
+        if 'nickname' in existing_cols:
+            row['nickname'] = record.get('nickname')
+        if 'status' in existing_cols:
+            row['status'] = record.get('status')
+        if 'type' in existing_cols:
+            row['type'] = record.get('type')
+        if 'bedrooms' in existing_cols:
+            row['bedrooms'] = record.get('bedrooms')
+        if 'bathrooms' in existing_cols:
+            row['bathrooms'] = record.get('bathrooms')
+        if 'created_at' in existing_cols:
+            row['created_at'] = record.get('createdAt')
+        if 'updated_at' in existing_cols:
+            row['updated_at'] = record.get('updatedAt')
     
     elif table == 'reservations':
         # Initialize lists for invoice items and taxes
         invoice_items = []
         tax_items = []
         
+        # Map confirmation_code from API confirmationCode
+        if 'confirmation_code' in existing_cols:
+            row['confirmation_code'] = record.get('confirmationCode')
+        
+        # Map check_in and check_out from API checkIn/checkOut
+        if 'check_in' in existing_cols:
+            row['check_in'] = record.get('checkIn')
+        if 'check_out' in existing_cols:
+            row['check_out'] = record.get('checkOut')
+        
+        # Map nights and guests_count from API nightsCount/guestsCount
+        if 'nights' in existing_cols:
+            row['nights'] = record.get('nightsCount')
+        if 'guests_count' in existing_cols:
+            row['guests_count'] = record.get('guestsCount')
+        
+        # Map listing_id from API listingId
+        if 'listing_id' in existing_cols:
+            row['listing_id'] = record.get('listingId')
+        
         guest = record.get('guest', {})
         if isinstance(guest, dict):
-            if 'guestId' in existing_cols:
-                row['guestId'] = guest.get('_id')
-            if 'guestName' in existing_cols:
+            if 'guest_id' in existing_cols:
+                row['guest_id'] = guest.get('_id')
+            if 'guest_name' in existing_cols:
                 name = f"{guest.get('firstName', '')} {guest.get('lastName', '')}".strip()
                 if name:
-                    row['guestName'] = name
-            if 'guestEmail' in existing_cols:
-                row['guestEmail'] = guest.get('email')
-            if 'guestPhone' in existing_cols:
-                row['guestPhone'] = guest.get('phone')
+                    row['guest_name'] = name
+            if 'guest_email' in existing_cols:
+                row['guest_email'] = guest.get('email')
+            if 'guest_phone' in existing_cols:
+                row['guest_phone'] = guest.get('phone')
         
         money = record.get('money', {}) or {}
         if isinstance(money, dict):
-            if 'totalPrice' in existing_cols:
-                row['totalPrice'] = money.get('hostPayout', 0)
-            if 'payoutAmount' in existing_cols:
-                row['payoutAmount'] = money.get('hostPayout', 0)
-            if 'balanceDue' in existing_cols:
-                row['balanceDue'] = money.get('balanceDue', 0)
+            if 'total_price' in existing_cols:
+                row['total_price'] = money.get('fareAccommodation') or money.get('hostPayout', 0)
+            if 'subtotal' in existing_cols:
+                row['subtotal'] = money.get('subtotal') or money.get('fareAccommodation', 0)
+            if 'balance_due' in existing_cols:
+                row['balance_due'] = money.get('balanceDue', 0)
             if 'host_payout' in existing_cols:
                 row['host_payout'] = money.get('hostPayout')
             if 'total_paid' in existing_cols:
                 row['total_paid'] = money.get('totalPaid')
             if 'payment_status' in existing_cols:
                 row['payment_status'] = money.get('paymentStatus')
+            if 'currency' in existing_cols:
+                row['currency'] = money.get('currency') or record.get('currency')
             
             # Extract invoice items from money object
             raw_invoice_items = money.get('invoiceItems', []) or []
@@ -570,12 +608,36 @@ def _map_record_to_db(record, table, existing_cols, dry_run=False):
         return (row, invoice_items, tax_items)
     
     elif table == 'guests':
-        if 'fullName' in existing_cols:
-            row['fullName'] = f"{record.get('firstName', '')} {record.get('lastName', '')}".strip()
+        if 'full_name' in existing_cols:
+            row['full_name'] = f"{record.get('firstName', '')} {record.get('lastName', '')}".strip()
+        if 'first_name' in existing_cols:
+            row['first_name'] = record.get('firstName', '')
+        if 'last_name' in existing_cols:
+            row['last_name'] = record.get('lastName', '')
+        if 'email' in existing_cols:
+            row['email'] = record.get('email')
+        if 'phone' in existing_cols:
+            row['phone'] = record.get('phone')
+        if 'country' in existing_cols:
+            row['country'] = record.get('country')
     
     elif table == 'owners':
-        if 'isActive' in existing_cols:
-            row['isActive'] = 1 if record.get('active', True) else 0
+        if 'is_active' in existing_cols:
+            row['is_active'] = 1 if record.get('active', True) else 0
+        if 'full_name' in existing_cols:
+            row['full_name'] = f"{record.get('firstName', '')} {record.get('lastName', '')}".strip()
+        if 'first_name' in existing_cols:
+            row['first_name'] = record.get('firstName', '')
+        if 'last_name' in existing_cols:
+            row['last_name'] = record.get('lastName', '')
+        if 'email' in existing_cols:
+            row['email'] = record.get('email')
+        if 'phone' in existing_cols:
+            row['phone'] = record.get('phone')
+        if 'company' in existing_cols:
+            row['company'] = record.get('company')
+        if 'notes' in existing_cols:
+            row['notes'] = record.get('notes')
     
     elif table == 'users':
         if 'first_name' in existing_cols:
@@ -598,10 +660,78 @@ def _map_record_to_db(record, table, existing_cols, dry_run=False):
                 row['content'] = raw_review.get('public_review')
             if 'response' in existing_cols:
                 row['response'] = raw_review.get('reviewee_response')
-        if 'reviewerName' in existing_cols:
-            row['reviewerName'] = record.get('reviewerName') or (record.get('reviewer', {}) or {}).get('name')
+        if 'reviewer_name' in existing_cols:
+            row['reviewer_name'] = record.get('reviewerName') or (record.get('reviewer', {}) or {}).get('name')
         if 'platform' in existing_cols:
             row['platform'] = record.get('channelId')
+        if 'reservation_id' in existing_cols:
+            row['reservation_id'] = record.get('reservationId')
+        if 'listing_id' in existing_cols:
+            row['listing_id'] = record.get('listingId')
+        if 'guest_id' in existing_cols:
+            row['guest_id'] = record.get('guestId')
+        if 'created_at' in existing_cols:
+            row['created_at'] = record.get('createdAt')
+        if 'updated_at' in existing_cols:
+            row['updated_at'] = record.get('updatedAt')
+    
+    elif table == 'tasks':
+        if 'title' in existing_cols:
+            row['title'] = record.get('title')
+        if 'description' in existing_cols:
+            row['description'] = record.get('description')
+        if 'status' in existing_cols:
+            row['status'] = record.get('status')
+        if 'priority' in existing_cols:
+            row['priority'] = record.get('priority')
+        if 'assigned_to' in existing_cols:
+            row['assigned_to'] = record.get('assignedTo')
+        if 'listing_id' in existing_cols:
+            row['listing_id'] = record.get('listingId')
+        if 'reservation_id' in existing_cols:
+            row['reservation_id'] = record.get('reservationId')
+        if 'due_date' in existing_cols:
+            row['due_date'] = record.get('dueDate')
+        if 'completed_at' in existing_cols:
+            row['completed_at'] = record.get('completedAt')
+        if 'created_at' in existing_cols:
+            row['created_at'] = record.get('createdAt')
+        if 'updated_at' in existing_cols:
+            row['updated_at'] = record.get('updatedAt')
+    
+    elif table == 'integrations':
+        if 'name' in existing_cols:
+            row['name'] = record.get('name')
+        if 'type' in existing_cols:
+            row['type'] = record.get('type')
+        if 'status' in existing_cols:
+            row['status'] = record.get('status')
+        if 'platform' in existing_cols:
+            row['platform'] = record.get('platform')
+        if 'listing_id' in existing_cols:
+            row['listing_id'] = record.get('listingId')
+        if 'last_sync' in existing_cols:
+            row['last_sync'] = record.get('lastSyncAt')
+        if 'sync_errors' in existing_cols:
+            row['sync_errors'] = record.get('syncErrors')
+        if 'created_at' in existing_cols:
+            row['created_at'] = record.get('createdAt')
+        if 'updated_at' in existing_cols:
+            row['updated_at'] = record.get('updatedAt')
+    
+    elif table == 'webhooks':
+        if 'url' in existing_cols:
+            row['url'] = record.get('url')
+        if 'events' in existing_cols:
+            events = record.get('events', [])
+            if events:
+                row['events'] = json.dumps(events)
+        if 'active' in existing_cols:
+            row['active'] = 1 if record.get('active', True) else 0
+        if 'created_at' in existing_cols:
+            row['created_at'] = record.get('createdAt')
+        if 'updated_at' in existing_cols:
+            row['updated_at'] = record.get('updatedAt')
     
     return row
 

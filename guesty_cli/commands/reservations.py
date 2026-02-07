@@ -207,9 +207,9 @@ def _get_source_from_row(row):
 
 def _resolve_reservation(db, identifier):
     """Resolve a confirmation code or ID to its actual ID."""
-    row = db.execute("SELECT id, confirmationCode FROM reservations WHERE id = ? OR confirmationCode = ?", (identifier, identifier)).fetchone()
+    row = db.execute("SELECT id, confirmation_code FROM reservations WHERE id = ? OR confirmation_code = ?", (identifier, identifier)).fetchone()
     if row:
-        return row['id'], row['confirmationCode']
+        return row['id'], row['confirmation_code']
     return None, None
 
 
@@ -411,22 +411,23 @@ def run_list(args):
             return
     else:
         db = get_db()
-        # Use JOINs to get listing nickname and guest name, plus calculated prices from financials
+        # Use JOINs to get listing nickname and guest name, plus calculated prices from invoice_items
         query = """SELECT r.*,
                           l.nickname as listing_nickname,
-                          g.fullName as guest_fullName,
-                          g.firstName as guest_firstName,
-                          g.lastName as guest_lastName,
-                          COALESCE((SELECT SUM(amount) FROM financials f
-                                    WHERE f.reservationId = r.id
-                                    AND f.lineType IN ('income', 'ACCOMMODATION_FARE')
-                                    AND f.amount > 0), 0) as calculated_price,
-                          COALESCE((SELECT SUM(amount) FROM financials f
-                                    WHERE f.reservationId = r.id
-                                    AND f.amount > 0), 0) as total_financials
+                          l.title as listing_title,
+                          g.full_name as guest_fullName,
+                          g.first_name as guest_firstName,
+                          g.last_name as guest_lastName,
+                          COALESCE((SELECT SUM(amount) FROM invoice_items ii
+                                    WHERE ii.reservation_id = r.id
+                                    AND ii.type IN ('accommodation', 'cleaning_fee')
+                                    AND ii.amount > 0), 0) as calculated_price,
+                          COALESCE((SELECT SUM(amount) FROM invoice_items ii
+                                    WHERE ii.reservation_id = r.id
+                                    AND ii.amount > 0), 0) as total_invoice_items
                    FROM reservations r
-                   LEFT JOIN listings l ON r.listingId = l.id
-                   LEFT JOIN guests g ON r.guestId = g.id
+                   LEFT JOIN listings l ON r.listing_id = l.id
+                   LEFT JOIN guests g ON r.guest_id = g.id
                    WHERE 1=1"""
         params = []
 
@@ -434,24 +435,24 @@ def run_list(args):
             query += " AND r.status = ?"
             params.append(args.status)
         if args.listing:
-            query += " AND r.listingId = ?"
+            query += " AND r.listing_id = ?"
             params.append(args.listing)
         if args.source:
             query += " AND r.source = ?"
             params.append(args.source)
         if args.today:
-            query += " AND r.checkIn LIKE ?"
+            query += " AND r.check_in LIKE ?"
             params.append(f'{today}%')
         if args.upcoming:
             next_week = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
-            query += " AND r.checkIn BETWEEN ? AND ?"
+            query += " AND r.check_in BETWEEN ? AND ?"
             params.append(f'{today}T00:00:00.000Z')
             params.append(f'{next_week}T23:59:59.999Z')
         if args.from_date:
-            query += " AND r.checkIn >= ?"
+            query += " AND r.check_in >= ?"
             params.append(f'{args.from_date}T00:00:00.000Z')
         if args.to_date:
-            query += " AND r.checkIn <= ?"
+            query += " AND r.check_in <= ?"
             params.append(f'{args.to_date}T23:59:59.999Z')
         if args.guest:
             query += " AND (r.guestName LIKE ? OR r.guestEmail LIKE ? OR g.fullName LIKE ? OR g.firstName LIKE ? OR g.lastName LIKE ?)"
@@ -465,7 +466,7 @@ def run_list(args):
             print(red(f"Filter error: {e}"))
             return
 
-        query += " ORDER BY r.checkIn DESC LIMIT ?"
+        query += " ORDER BY r.check_in DESC LIMIT ?"
         params.append(args.limit)
 
         try:
@@ -490,7 +491,7 @@ def run_list(args):
         listing_name = r.get('listing_nickname') or r.get('listingId', 'N/A')
 
         rows.append([
-            r.get('confirmationCode', 'N/A'),
+            r.get('confirmation_code', 'N/A'),
             guest_name[:30] if guest_name else 'N/A',
             listing_name[:25] if listing_name else 'N/A',
             clean_date(r.get('checkIn')),
@@ -541,13 +542,13 @@ def _apply_enhanced_filters_to_sql(query, params, filters):
         
         # Map API field names to SQL column names
         column_map = {
-            'listingId': 'r.listingId',
-            'guestId': 'r.guestId',
-            'confirmationCode': 'r.confirmationCode',
+            'listingId': 'r.listing_id',
+            'guestId': 'r.guest_id',
+            'confirmation_code': 'r.confirmation_code',
             'status': 'r.status',
             'source': 'r.source',
-            'checkIn': 'r.checkIn',
-            'checkOut': 'r.checkOut',
+            'checkIn': 'r.check_in',
+            'checkOut': 'r.check_out',
             'nightsCount': 'r.nightsCount',
             'guestsCount': 'r.guestsCount',
             'totalPrice': 'r.totalPrice',
@@ -585,7 +586,7 @@ def run_get(args):
         except:
             # Try by confirmation code
             try:
-                params = {'filters': json.dumps([{"field": "confirmationCode", "operator": "$eq", "value": args.id_or_code}])}
+                params = {'filters': json.dumps([{"field": "confirmation_code", "operator": "$eq", "value": args.id_or_code}])}
                 results = client.api_get_all('/v1/reservations', params)
                 if results:
                     reservation = results[0]
@@ -607,8 +608,8 @@ def run_get(args):
                        g.firstName as guest_firstName,
                        g.lastName as guest_lastName
                 FROM reservations r
-                LEFT JOIN listings l ON r.listingId = l.id
-                LEFT JOIN guests g ON r.guestId = g.id
+                LEFT JOIN listings l ON r.listing_id = l.id
+                LEFT JOIN guests g ON r.guest_id = g.id
                 WHERE r.id = ?
             """, (args.id_or_code,))
             row = cursor.fetchone()
@@ -622,9 +623,9 @@ def run_get(args):
                            g.firstName as guest_firstName,
                            g.lastName as guest_lastName
                     FROM reservations r
-                    LEFT JOIN listings l ON r.listingId = l.id
-                    LEFT JOIN guests g ON r.guestId = g.id
-                    WHERE r.confirmationCode = ?
+                    LEFT JOIN listings l ON r.listing_id = l.id
+                    LEFT JOIN guests g ON r.guest_id = g.id
+                    WHERE r.confirmation_code = ?
                 """, (args.id_or_code,))
                 row = cursor.fetchone()
 
@@ -634,12 +635,12 @@ def run_get(args):
 
             reservation = dict(row)
 
-            # Get financials
+            # Get invoice_items
             cursor = db.execute(
-                "SELECT * FROM financials WHERE reservationId = ? ORDER BY createdAt",
+                "SELECT * FROM invoice_items WHERE reservation_id = ? ORDER BY type",
                 (reservation.get('id'),)
             )
-            financials = [dict(r) for r in cursor.fetchall()]
+            invoice_items = [dict(r) for r in cursor.fetchall()]
 
         except Exception as e:
             print(red(f"Error: {e}"))
@@ -648,7 +649,7 @@ def run_get(args):
     if args.json:
         result = {
             'reservation': reservation,
-            'financials': financials
+            'invoice_items': invoice_items
         }
         print_json(result)
         return
@@ -684,7 +685,7 @@ def run_get(args):
 
     card_data = {
         'ID': reservation.get('id'),
-        'Confirmation Code': reservation.get('confirmationCode'),
+        'Confirmation Code': reservation.get('confirmation_code'),
         'Guest': guest_name,
         'Guest Email': reservation.get('guestEmail', 'N/A'),
         'Guest Phone': reservation.get('guestPhone', 'N/A') or 'N/A',
@@ -701,24 +702,24 @@ def run_get(args):
         'Balance Due': format_money(balance_due, reservation.get('currency', 'USD')),
     }
 
-    print_card(f"Reservation {reservation.get('confirmationCode', 'Unknown')}", card_data)
+    print_card(f"Reservation {reservation.get('confirmation_code', 'Unknown')}", card_data)
 
-    # Financial breakdown
-    if financials:
+    # Invoice items breakdown
+    if invoice_items:
         print()
-        print(bold("Financial Breakdown"))
+        print(bold("Invoice Items"))
         headers = ['Type', 'Description', 'Amount']
         rows = []
-        for f in financials:
+        for ii in invoice_items:
             rows.append([
-                f.get('lineType') or f.get('normalType') or 'N/A',
-                (f.get('title') or f.get('description') or 'N/A')[:30],
-                format_money(f.get('amount', 0), f.get('currency', 'USD')),
+                ii.get('type') or 'N/A',
+                (ii.get('description') or 'N/A')[:30],
+                format_money(ii.get('amount', 0), ii.get('currency', 'USD')),
             ])
         print_table(headers, rows)
     else:
         print()
-        print(dim("No detailed financial records"))
+        print(dim("No detailed invoice items"))
 
 
 def run_create(args):
@@ -778,7 +779,7 @@ def run_create(args):
             result = client.api_post('reservations', data)
             print(green(f"✓ Reservation created successfully!"))
             print(f"  ID: {result.get('_id', result.get('id', 'N/A'))}")
-            print(f"  Confirmation Code: {result.get('confirmationCode', 'N/A')}")
+            print(f"  Confirmation Code: {result.get('confirmation_code', 'N/A')}")
             print(f"  Guest: {args.guest_name}")
             print(f"  Dates: {args.checkin} to {args.checkout}")
         except Exception as e:
@@ -978,15 +979,15 @@ def run_decline(args):
 def _resolve_reservation(db, id_or_code):
     """Resolve a reservation ID or confirmation code to (id, confirmation_code)."""
     # Try as ID first
-    cursor = db.execute("SELECT id, confirmationCode FROM reservations WHERE id = ?", (id_or_code,))
+    cursor = db.execute("SELECT id, confirmation_code FROM reservations WHERE id = ?", (id_or_code,))
     row = cursor.fetchone()
     if row:
-        return row['id'], row['confirmationCode']
+        return row['id'], row['confirmation_code']
     
     # Try as confirmation code
-    cursor = db.execute("SELECT id, confirmationCode FROM reservations WHERE confirmationCode = ?", (id_or_code,))
+    cursor = db.execute("SELECT id, confirmation_code FROM reservations WHERE confirmation_code = ?", (id_or_code,))
     row = cursor.fetchone()
     if row:
-        return row['id'], row['confirmationCode']
+        return row['id'], row['confirmation_code']
     
     return None, None

@@ -169,16 +169,16 @@ def calculate_monthly_metrics(
     # Calculate nights from checkIn/checkOut since there's no nights column
     cursor = db.execute(f"""
         SELECT 
-            COALESCE(SUM(r.totalPrice), 0) as total_revenue,
+            COALESCE(SUM(r.total_price), 0) as total_revenue,
             COALESCE(SUM(
-                CAST((julianday(r.checkOut) - julianday(r.checkIn)) AS INTEGER)
+                CAST((julianday(r.check_out) - julianday(r.check_in)) AS INTEGER)
             ), 0) as total_nights,
             COUNT(DISTINCT r.id) as reservation_count,
-            COALESCE(AVG(r.totalPrice / NULLIF(
-                CAST((julianday(r.checkOut) - julianday(r.checkIn)) AS INTEGER), 0
+            COALESCE(AVG(r.total_price / NULLIF(
+                CAST((julianday(r.check_out) - julianday(r.check_in)) AS INTEGER), 0
             )), 0) as adr
         FROM reservations r
-        WHERE r.checkIn >= ? AND r.checkIn <= ?
+        WHERE r.check_in >= ? AND r.check_in <= ?
         AND r.status NOT IN ('cancelled', 'canceled', 'declined', 'inquiry', 'pending')
         {listing_filter.replace('cd.', 'r.').replace('listing_id', 'listingId')}
     """, params)

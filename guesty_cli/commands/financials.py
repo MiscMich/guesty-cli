@@ -150,19 +150,19 @@ def run_revenue(args):
             f.*,
             l.nickname as listing_nickname,
             l.city as listing_city,
-            r.confirmationCode,
-            r.checkIn,
-            r.checkOut,
-            r.guestName
-        FROM financials f
-        LEFT JOIN reservations r ON f.reservationId = r.id
-        LEFT JOIN listings l ON r.listingId = l.id
-        WHERE r.checkIn >= ? AND r.checkIn < ?
+            r.confirmation_code,
+            r.check_in,
+            r.check_out,
+            r.guest_name
+        FROM invoice_items f
+        LEFT JOIN reservations r ON f.reservation_id = r.id
+        LEFT JOIN listings l ON r.listing_id = l.id
+        WHERE r.check_in >= ? AND r.check_in < ?
     """
     params = [start_date, end_date]
     
     if args.listing:
-        query += " AND (l.nickname LIKE ? OR l.id = ? OR r.listingId = ?)"
+        query += " AND (l.nickname LIKE ? OR l.id = ? OR r.listing_id = ?)"
         search_term = f'%{args.listing}%'
         params.extend([search_term, args.listing, args.listing])
     
@@ -384,12 +384,12 @@ def run_taxes(args):
             l.nickname as listing_nickname,
             l.city as listing_city,
             l.address as listing_address,
-            r.confirmationCode,
-            r.checkIn
-        FROM financials f
-        LEFT JOIN reservations r ON f.reservationId = r.id
-        LEFT JOIN listings l ON r.listingId = l.id
-        WHERE r.checkIn >= ? AND r.checkIn < ?
+            r.confirmation_code,
+            r.check_in
+        FROM invoice_items f
+        LEFT JOIN reservations r ON f.reservation_id = r.id
+        LEFT JOIN listings l ON r.listing_id = l.id
+        WHERE r.check_in >= ? AND r.check_in < ?
     """
     params = [start_date, end_date]
     
@@ -544,12 +544,12 @@ def run_dr15(args):
             f.*,
             l.nickname as listing_nickname,
             l.city as listing_city,
-            r.confirmationCode,
-            r.checkIn
-        FROM financials f
-        LEFT JOIN reservations r ON f.reservationId = r.id
-        LEFT JOIN listings l ON r.listingId = l.id
-        WHERE r.checkIn >= ? AND r.checkIn < ?
+            r.confirmation_code,
+            r.check_in
+        FROM invoice_items f
+        LEFT JOIN reservations r ON f.reservation_id = r.id
+        LEFT JOIN listings l ON r.listing_id = l.id
+        WHERE r.check_in >= ? AND r.check_in < ?
     """
     
     try:
@@ -730,25 +730,25 @@ def run_summary(args):
     db = get_db()
     
     # Build base query with JOINs to get listing nickname via reservation
-    query = """SELECT f.*, l.nickname as listing_nickname, r.listingId as reservation_listing_id
-               FROM financials f
-               LEFT JOIN reservations r ON f.reservationId = r.id
-               LEFT JOIN listings l ON r.listingId = l.id
+    query = """SELECT f.*, l.nickname as listing_nickname, r.listing_id as reservation_listing_id
+               FROM invoice_items f
+               LEFT JOIN reservations r ON f.reservation_id = r.id
+               LEFT JOIN listings l ON r.listing_id = l.id
                WHERE 1=1"""
     params = []
     
     if args.listing:
-        query += " AND (l.nickname LIKE ? OR r.listingId = ?)"
+        query += " AND (l.nickname LIKE ? OR r.listing_id = ?)"
         params.append(f'%{args.listing}%')
         params.append(args.listing)
     if args.type:
         query += " AND f.lineType = ?"
         params.append(args.type)
     if args.from_date:
-        query += " AND f.createdAt >= ?"
+        query += " AND f.created_at >= ?"
         params.append(f'{args.from_date}T00:00:00.000Z')
     if args.to_date:
-        query += " AND f.createdAt <= ?"
+        query += " AND f.created_at <= ?"
         params.append(f'{args.to_date}T23:59:59.999Z')
     
     try:
@@ -778,7 +778,7 @@ def run_summary(args):
     # By month
     by_month = defaultdict(lambda: {'income': 0, 'expenses': 0, 'count': 0})
     for f in financials:
-        date = f.get('createdAt', '')
+        date = f.get('created_at', '')
         month = date[:7] if date else 'unknown'  # YYYY-MM
         by_month[month]['count'] += 1
         amount = f.get('amount', 0) or 0

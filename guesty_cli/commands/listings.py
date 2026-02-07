@@ -1,6 +1,7 @@
 """
 Listings management commands for guesty-cli.
 """
+import argparse
 import json
 from guesty_cli.core.config import load_config
 from guesty_cli.core.database import get_db
@@ -25,6 +26,9 @@ def _resolve_listing(db, identifier):
     return None, None
 
 
+KNOWN_LISTING_ACTIONS = {'get', 'create', 'update', 'delete'}
+
+
 def register(subparsers):
     """Register listings commands with the argument parser."""
     # guesty listings (list)
@@ -45,13 +49,18 @@ def register(subparsers):
         'listing',
         help='Manage a specific listing'
     )
+    
+    # Add shortcut argument BEFORE subparsers to catch bare listing names
+    listing_parser.add_argument('listing_name', nargs='?', default=None, 
+                                 help='Listing name (shortcut for "get")')
+    listing_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    listing_parser.add_argument('--live', action='store_true', help='Query live API')
+    
     listing_subparsers = listing_parser.add_subparsers(dest='listing_action')
 
     # guesty listing get <id_or_nickname>
     get_parser = listing_subparsers.add_parser('get', help='Show details for a specific listing')
     get_parser.add_argument('id_or_nickname', help='Listing ID or nickname')
-    get_parser.add_argument('--json', action='store_true', help='Output as JSON')
-    get_parser.add_argument('--live', action='store_true', help='Query live API')
     get_parser.set_defaults(func=run_get)
 
     # guesty listing create
@@ -93,11 +102,35 @@ def register(subparsers):
     delete_parser.add_argument('--confirm', action='store_true', help='Confirm deletion (required)')
     delete_parser.add_argument('--live', action='store_true', help='Delete via live API')
     delete_parser.set_defaults(func=run_delete)
+    
+    # Set the default handler
+    listing_parser.set_defaults(func=run_listing_shortcut)
+
+
+def run_listing_shortcut(args):
+    """Handle shortcut: guesty listing <name> -> guesty listing get <name>."""
+    # If listing_action is set, it means a subcommand was used
+    if getattr(args, 'listing_action', None):
+        # This shouldn't happen as subcommands have their own func
+        return
+    
+    # Check if listing_name was provided (not a known action)
+    name = getattr(args, 'listing_name', None)
+    if name and name not in KNOWN_LISTING_ACTIONS:
+        # Treat as listing name for get command
+        args.id_or_nickname = name
+        run_get(args)
+    else:
+        print(yellow("Usage: guesty listing <nickname>  (shortcut for 'guesty listing get <nickname>')"))
+        print(yellow("       guesty listing get <nickname>"))
+        print(yellow("       guesty listing create --title ..."))
+        print(yellow("       guesty listing update <nickname> ..."))
+        print(yellow("       guesty listing delete <nickname>"))
 
 
 def run(args):
     """Route to appropriate subcommand handler."""
-    pass  # Handled by subparsers
+    pass  # Handled by run_listing_shortcut or subparsers
 
 
 def run_list(args):

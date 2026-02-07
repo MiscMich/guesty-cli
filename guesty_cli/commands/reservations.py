@@ -1,6 +1,7 @@
 """
 Reservations management commands for guesty-cli.
 """
+import argparse
 import json
 from datetime import datetime, timedelta
 from guesty_cli.core.config import load_config
@@ -180,6 +181,9 @@ def _resolve_reservation(db, identifier):
     return None, None
 
 
+KNOWN_RESERVATION_ACTIONS = {'get', 'create', 'update', 'cancel', 'approve', 'decline'}
+
+
 def register(subparsers):
     """Register reservations commands with the argument parser."""
     # guesty reservations (list)
@@ -214,6 +218,13 @@ def register(subparsers):
     get_parser.add_argument('--json', action='store_true', help='Output as JSON')
     get_parser.add_argument('--live', action='store_true', help='Query live API')
     get_parser.set_defaults(func=run_get)
+    
+    # Add shortcut argument directly to reservation_parser
+    # This allows: guesty reservation "CODE" -> acts as get
+    reservation_parser.add_argument('shortcut_code', nargs='?', help=argparse.SUPPRESS)
+    reservation_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    reservation_parser.add_argument('--live', action='store_true', help='Query live API')
+    reservation_parser.set_defaults(func=run_reservation_shortcut)
 
     # guesty reservation create
     create_parser = reservation_subparsers.add_parser('create', help='Create a new reservation')
@@ -265,6 +276,27 @@ def register(subparsers):
     decline_parser.add_argument('--reason', type=str, help='Decline reason')
     decline_parser.add_argument('--live', action='store_true', help='Decline via live API')
     decline_parser.set_defaults(func=run_decline)
+
+
+def run_reservation_shortcut(args):
+    """Handle shortcut: guesty reservation <code> -> guesty reservation get <code>."""
+    # If reservation_action is set, it means a subcommand was used
+    if getattr(args, 'reservation_action', None):
+        # This shouldn't happen as subcommands have their own func
+        return
+    
+    # Check if shortcut_code was provided
+    shortcut = getattr(args, 'shortcut_code', None)
+    if shortcut and shortcut not in KNOWN_RESERVATION_ACTIONS:
+        # Treat as reservation code for get command
+        args.id_or_code = shortcut
+        run_get(args)
+    else:
+        print(yellow("Usage: guesty reservation <code>  (shortcut for 'guesty reservation get <code>')"))
+        print(yellow("       guesty reservation get <code>"))
+        print(yellow("       guesty reservation create ..."))
+        print(yellow("       guesty reservation update <code> ..."))
+        print(yellow("       guesty reservation cancel <code> ..."))
 
 
 def run(args):

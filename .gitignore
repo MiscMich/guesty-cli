@@ -21,3 +21,7 @@ Thumbs.db
 # Exports
 *.csv
 *.xlsx
+**/__pycache__/
+*.pyc
+config.json
+.env

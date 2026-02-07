@@ -4,6 +4,7 @@ Export data commands for guesty-cli.
 import json
 import csv
 import sys
+from datetime import datetime
 from guesty_cli.core.database import get_db
 from guesty_cli.core.output import bold, green, red, yellow
 
@@ -97,6 +98,3 @@ def export_csv(rows, columns, output_path):
         writer = csv.writer(f)
         writer.writerow(columns)
         writer.writerows(rows)
-
-
-from datetime import datetime

@@ -2,6 +2,7 @@
 Status dashboard command for guesty-cli.
 """
 from datetime import datetime, timedelta
+from guesty_cli import __version__
 from guesty_cli.core.config import load_config
 from guesty_cli.core.database import get_db, get_sync_status
 from guesty_cli.core.client import GuestyClient
@@ -112,23 +113,19 @@ def run(args):
     today = datetime.now().strftime('%Y-%m-%d')
     today_stats = {'checkins': 0, 'checkouts': 0}
     try:
-        # Match on date part of checkIn or checkInDateLocalized
+        # Match on date part of checkIn
         cursor = db.execute(
-            """SELECT COUNT(*) FROM reservations 
-               WHERE (checkIn LIKE ? OR checkInDateLocalized = ?) 
-               AND status = 'confirmed'""",
-            (f'{today}%', today)
+            "SELECT COUNT(*) FROM reservations WHERE checkIn LIKE ? AND status = 'confirmed'",
+            (f'{today}%',)
         )
         today_stats['checkins'] = cursor.fetchone()[0]
         
         cursor = db.execute(
-            """SELECT COUNT(*) FROM reservations 
-               WHERE (checkOut LIKE ? OR checkOutDateLocalized = ?) 
-               AND status = 'confirmed'""",
-            (f'{today}%', today)
+            "SELECT COUNT(*) FROM reservations WHERE checkOut LIKE ? AND status = 'confirmed'",
+            (f'{today}%',)
         )
         today_stats['checkouts'] = cursor.fetchone()[0]
-    except:
+    except Exception as e:
         pass
     status_data['today_stats'] = today_stats
     
@@ -150,7 +147,7 @@ def run(args):
         return
     
     # Print dashboard
-    print_banner(version="1.0.0")
+    print_banner(version=__version__)
     print_header(f"Dashboard - {config.get('account_name', 'Guesty Account')}", emoji="📊")
     
     # Key metrics stat boxes

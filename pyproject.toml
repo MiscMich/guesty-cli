@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "guesty-cli"
+version = "0.1.0"
+description = "Universal CLI for Guesty PMS"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Villa Paraiso Vacation Rentals", email = "tech@paraisovacationrentals.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Office/Business",
+    "Operating System :: OS Independent",
+]
+keywords = ["guesty", "pms", "vacation", "rental", "cli", "automation"]
+requires-python = ">=3.8"
+
+[project.urls]
+Homepage = "https://github.com/villaparaiso/guesty-cli"
+Documentation = "https://github.com/villaparaiso/guesty-cli/blob/main/README.md"
+Repository = "https://github.com/villaparaiso/guesty-cli"
+"Bug Tracker" = "https://github.com/villaparaiso/guesty-cli/issues"
+
+[project.scripts]
+guesty = "guesty_cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["guesty_cli*"]
+exclude = ["tests*"]

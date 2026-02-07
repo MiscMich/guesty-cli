@@ -427,13 +427,16 @@ def print_table(headers: list, rows: list, max_widths: Optional[list] = None) ->
     term_width = get_terminal_width()
     num_cols = len(headers)
     
-    # Minimum column widths
+    # Minimum column widths for specific column types
     min_widths = {
-        'code': 12,
-        'name': 15,
-        'date': 10,
-        'price': 10,
+        'guest': 18,
+        'name': 18,
+        'code': 13,
+        'listing': 16,
+        'date': 12,
         'status': 10,
+        'source': 8,
+        'price': 10,
         'id': 12,
     }
     

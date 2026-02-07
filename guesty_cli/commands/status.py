@@ -68,7 +68,7 @@ def run(args):
     token_status = {'valid': False, 'hours_remaining': 0}
     try:
         # Check auth_tokens table first
-        cursor = db.execute("SELECT token, expires_at FROM auth_tokens WHERE id = 'guesty_api' ORDER BY created_at DESC LIMIT 1")
+        cursor = db.execute("SELECT token, expires_at FROM auth_tokens ORDER BY created_at DESC LIMIT 1")
         token_row = cursor.fetchone()
         
         if token_row:
@@ -112,15 +112,20 @@ def run(args):
     today = datetime.now().strftime('%Y-%m-%d')
     today_stats = {'checkins': 0, 'checkouts': 0}
     try:
+        # Match on date part of checkIn or checkInDateLocalized
         cursor = db.execute(
-            "SELECT COUNT(*) FROM reservations WHERE checkIn LIKE ? AND status = 'confirmed'",
-            (f'{today}%',)
+            """SELECT COUNT(*) FROM reservations 
+               WHERE (checkIn LIKE ? OR checkInDateLocalized = ?) 
+               AND status = 'confirmed'""",
+            (f'{today}%', today)
         )
         today_stats['checkins'] = cursor.fetchone()[0]
         
         cursor = db.execute(
-            "SELECT COUNT(*) FROM reservations WHERE checkOut LIKE ? AND status = 'confirmed'",
-            (f'{today}%',)
+            """SELECT COUNT(*) FROM reservations 
+               WHERE (checkOut LIKE ? OR checkOutDateLocalized = ?) 
+               AND status = 'confirmed'""",
+            (f'{today}%', today)
         )
         today_stats['checkouts'] = cursor.fetchone()[0]
     except:

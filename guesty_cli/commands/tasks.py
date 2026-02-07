@@ -123,20 +123,23 @@ def run_list(args):
             return
     else:
         db = get_db()
-        query = "SELECT * FROM tasks WHERE 1=1"
+        query = """SELECT t.*, l.nickname as listingName 
+                   FROM tasks t 
+                   LEFT JOIN listings l ON t.listingId = l.id 
+                   WHERE 1=1"""
         params = []
         
         if args.status:
-            query += " AND status = ?"
+            query += " AND t.status = ?"
             params.append(args.status)
         if args.listing:
-            query += " AND listingId = ?"
+            query += " AND t.listingId = ?"
             params.append(args.listing)
         if args.priority:
-            query += " AND priority = ?"
+            query += " AND t.priority = ?"
             params.append(args.priority)
         
-        query += " ORDER BY dueDate, priority DESC LIMIT ?"
+        query += " ORDER BY t.dueDate, t.priority DESC LIMIT ?"
         params.append(args.limit)
         
         try:
@@ -162,13 +165,13 @@ def run_list(args):
             due = str(due)[:10]
         
         title = t.get('title') or 'N/A'
-        listing_id = t.get('listingId') or 'N/A'
+        listing_name = t.get('listingName') or t.get('listingId') or 'N/A'
         status = t.get('status') or 'N/A'
         assignee = t.get('assignee') or 'Unassigned'
         
         rows.append([
             title[:30],
-            listing_id[:20],
+            listing_name[:25],
             status,
             pc(p),
             due,

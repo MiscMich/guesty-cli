@@ -112,6 +112,12 @@ class GuestyClient:
         retry_delay = 1  # Start with 1 second
         
         for attempt in range(max_retries + 1):
+            # Pre-flight rate limit check — pause if we're running low
+            if auth and self.rate_limit_remaining["second"] <= 1:
+                time.sleep(1)
+            elif auth and self.rate_limit_remaining["minute"] <= 5:
+                time.sleep(2)
+            
             req_headers = headers.copy() if headers else {}
             
             if auth:

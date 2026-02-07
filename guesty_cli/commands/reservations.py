@@ -493,6 +493,26 @@ def run_get(args):
     listing_name = reservation.get('listing_nickname') or reservation.get('listingId', 'N/A')
     total_price = _get_price_from_row(reservation, 'totalPrice')
     payout = _get_price_from_row(reservation, 'payoutAmount')
+    
+    # Extract nights and guests from raw_json if not directly available
+    nights_count = reservation.get('nightsCount')
+    guests_count = reservation.get('guestsCount')
+    
+    if not nights_count or not guests_count:
+        raw_json = reservation.get('raw_json')
+        if raw_json:
+            try:
+                raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
+                if not nights_count:
+                    nights_count = raw.get('nightsCount')
+                if not guests_count:
+                    guests_count = raw.get('guestsCount')
+                    # Also try nested in guestInfo
+                    if not guests_count:
+                        guest_info = raw.get('guestInfo', {})
+                        guests_count = guest_info.get('numberOfGuests')
+            except (json.JSONDecodeError, AttributeError):
+                pass
 
     card_data = {
         'ID': reservation.get('id'),
@@ -501,13 +521,13 @@ def run_get(args):
         'Guest Email': reservation.get('guestEmail', 'N/A'),
         'Guest Phone': reservation.get('guestPhone', 'N/A') or 'N/A',
         'Listing': listing_name,
-        'Check-in': reservation.get('checkIn', 'N/A'),
-        'Check-out': reservation.get('checkOut', 'N/A'),
-        'Nights': reservation.get('nightsCount', 'N/A'),
-        'Guests': reservation.get('guestsCount', 'N/A'),
+        'Check-in': clean_date(reservation.get('checkIn')),
+        'Check-out': clean_date(reservation.get('checkOut')),
+        'Nights': nights_count if nights_count is not None else 'N/A',
+        'Guests': guests_count if guests_count is not None else 'N/A',
         'Status': status,
-        'Source': source,
-        'Booked': reservation.get('createdAt', 'N/A'),
+        'Source': format_source(source),
+        'Booked': clean_date(reservation.get('createdAt')),
         'Total Price': format_money(total_price, reservation.get('currency', 'USD')),
         'Payout': format_money(payout, reservation.get('currency', 'USD')),
     }

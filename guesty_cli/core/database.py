@@ -1051,3 +1051,225 @@ def upsert_tax_line_items(conn: sqlite3.Connection, items: list) -> int:
     
     conn.commit()
     return count
+
+def insert_webhook_event(conn: sqlite3.Connection, event: dict) -> str:
+    """Insert a webhook event into the database.
+    
+    Args:
+        conn: Database connection.
+        event: Webhook event dictionary.
+        
+    Returns:
+        str: The event ID.
+    """
+    import uuid
+    from datetime import datetime, timezone
+    
+    cursor = conn.cursor()
+    event_id = event.get('id') or str(uuid.uuid4())
+    
+    cursor.execute("""
+        INSERT INTO webhook_events (
+            id, event_type, payload, processed, 
+            processing_attempts, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        event_id,
+        event.get('event_type', 'unknown'),
+        json.dumps(event.get('payload', {})),
+        0,  # not processed
+        0,  # no attempts yet
+        datetime.now(timezone.utc).isoformat()
+    ))
+    
+    conn.commit()
+    return event_id
+
+
+def mark_webhook_processed(conn: sqlite3.Connection, event_id: str, error_message: str = None) -> bool:
+    """Mark a webhook event as processed.
+    
+    Args:
+        conn: Database connection.
+        event_id: The webhook event ID.
+        error_message: Optional error message if processing failed.
+        
+    Returns:
+        bool: True if updated successfully.
+    """
+    from datetime import datetime, timezone
+    
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        UPDATE webhook_events 
+        SET processed = 1, 
+            processed_at = ?,
+            error_message = ?
+        WHERE id = ?
+    """, (
+        datetime.now(timezone.utc).isoformat(),
+        error_message,
+        event_id
+    ))
+    
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def get_pending_webhook_events(conn: sqlite3.Connection, limit: int = 100) -> list:
+    """Get pending webhook events that need processing.
+    
+    Args:
+        conn: Database connection.
+        limit: Maximum number of events to return.
+        
+    Returns:
+        list: List of pending webhook events.
+    """
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT * FROM webhook_events 
+        WHERE processed = 0 
+        AND processing_attempts < 3
+        ORDER BY created_at ASC
+        LIMIT ?
+    """, (limit,))
+    
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def increment_webhook_attempts(conn: sqlite3.Connection, event_id: str) -> bool:
+    """Increment the processing attempts counter for a webhook event.
+    
+    Args:
+        conn: Database connection.
+        event_id: The webhook event ID.
+        
+    Returns:
+        bool: True if updated successfully.
+    """
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        UPDATE webhook_events 
+        SET processing_attempts = processing_attempts + 1
+        WHERE id = ?
+    """, (event_id,))
+    
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def get_webhook_event_by_id(conn: sqlite3.Connection, event_id: str) -> dict:
+    """Get a webhook event by ID.
+    
+    Args:
+        conn: Database connection.
+        event_id: The webhook event ID.
+        
+    Returns:
+        dict: The webhook event or None.
+    """
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM webhook_events WHERE id = ?", (event_id,))
+    row = cursor.fetchone()
+    
+    return dict(row) if row else None
+
+
+def update_webhook_event_status(conn: sqlite3.Connection, event_id: str, status: str, error_message: str = None) -> bool:
+    """Update the status of a webhook event.
+    
+    Args:
+        conn: Database connection.
+        event_id: The webhook event ID.
+        status: New status ('pending', 'processed', 'failed').
+        error_message: Optional error message.
+        
+    Returns:
+        bool: True if updated successfully.
+    """
+    from datetime import datetime, timezone
+    
+    cursor = conn.cursor()
+    
+    updates = ["status = ?"]
+    params = [status]
+    
+    if status in ('processed', 'failed'):
+        updates.append("processed_at = ?")
+        params.append(datetime.now(timezone.utc).isoformat())
+    
+    if error_message:
+        updates.append("error_message = ?")
+        params.append(error_message)
+    
+    params.append(event_id)
+    
+    cursor.execute(f"""
+        UPDATE webhook_events 
+        SET {', '.join(updates)}
+        WHERE id = ?
+    """, params)
+    
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def get_webhook_event_log(conn: sqlite3.Connection, limit: int = 100) -> list:
+    """Get the webhook event log.
+    
+    Args:
+        conn: Database connection.
+        limit: Maximum number of events to return.
+        
+    Returns:
+        list: List of webhook events ordered by created_at DESC.
+    """
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT * FROM webhook_events 
+        ORDER BY created_at DESC
+        LIMIT ?
+    """, (limit,))
+    
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def get_webhook_stats(conn: sqlite3.Connection) -> dict:
+    """Get webhook statistics.
+    
+    Args:
+        conn: Database connection.
+        
+    Returns:
+        dict: Statistics about webhook events.
+    """
+    cursor = conn.cursor()
+    
+    # Total events
+    cursor.execute("SELECT COUNT(*) FROM webhook_events")
+    total = cursor.fetchone()[0]
+    
+    # Pending events
+    cursor.execute("SELECT COUNT(*) FROM webhook_events WHERE processed = 0")
+    pending = cursor.fetchone()[0]
+    
+    # Processed events
+    cursor.execute("SELECT COUNT(*) FROM webhook_events WHERE processed = 1")
+    processed = cursor.fetchone()[0]
+    
+    # Failed events (more than 3 attempts)
+    cursor.execute("SELECT COUNT(*) FROM webhook_events WHERE processing_attempts >= 3 AND processed = 0")
+    failed = cursor.fetchone()[0]
+    
+    return {
+        'total': total,
+        'pending': pending,
+        'processed': processed,
+        'failed': failed
+    }

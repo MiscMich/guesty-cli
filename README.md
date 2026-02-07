@@ -2,14 +2,14 @@
 
 > The missing CLI for [Guesty PMS](https://guesty.com) — manage your vacation rental operations from the terminal.
 
-**44 commands** · **Zero dependencies** · **Local-first** · **AI-agent friendly**
+**60+ commands** · **Zero dependencies** · **Local-first** · **AI-agent friendly**
 
 ```
 ██████╗ ██╗   ██╗███████╗███████╗████████╗██╗   ██╗
 ██╔════╝ ██║   ██║██╔════╝██╔════╝╚══██╔══╝╚██╗ ██╔╝
 ██║  ███╗██║   ██║█████╗  ███████╗   ██║    ╚████╔╝
 ██║   ██║██║   ██║██╔══╝  ╚════██║   ██║     ╚██╔╝
-╚██████╔╝╚██████╔╝███████╗███████║   ██║      ██║
+╚██████╔╝╚██████╔╝███████║███████║   ██║      ██║
  ╚═════╝  ╚═════╝ ╚══════╝╚══════╝   ╚═╝      ╚═╝
 ```
 
@@ -21,6 +21,8 @@ Guesty has no official CLI. If you manage vacation rentals and want to:
 - Automate operations with scripts or AI agents
 - Export data to CSV/JSON for analysis
 - Block calendar dates, update prices, manage tasks
+- Generate owner statements and tax reports
+- Monitor occupancy metrics and gap nights
 
 ...this is for you.
 
@@ -70,7 +72,7 @@ guesty status        # See your dashboard
 
 ```bash
 guesty reservations --today            # Today's check-ins
-guesty reservation get HM4STAP88M     # Reservation detail + financials
+guesty reservation get HM4STAP88M      # Reservation detail + financials
 guesty listings                        # All properties
 guesty search "pool heater"            # Full-text search
 guesty export reservations --format csv # Export to CSV
@@ -78,72 +80,172 @@ guesty export reservations --format csv # Export to CSV
 
 ## Commands Reference
 
-### Read Operations
+### Setup & Status
 
 | Command | Description |
 |---------|-------------|
-| `guesty status` | Dashboard overview with stat boxes |
-| `guesty listings` | List all properties |
-| `guesty listing get <id_or_nickname>` | Property detail card |
-| `guesty reservations [--today] [--status X] [--limit N]` | List reservations with filters |
-| `guesty reservation get <id_or_code>` | Reservation detail + financial breakdown |
-| `guesty guests [--search NAME]` | List/search guests |
-| `guesty guest <id_or_email>` | Guest detail card |
-| `guesty owners` | List all owners |
-| `guesty owner get <id_or_name>` | Owner detail |
-| `guesty reviews [--listing X] [--limit N]` | List reviews with ratings |
-| `guesty financials` | Revenue by listing, by month, by type |
-| `guesty tasks [--limit N]` | List tasks |
-| `guesty task get <id>` | Task detail |
-| `guesty calendar <listing> [--month YYYY-MM]` | View calendar |
-| `guesty search <query>` | Full-text search across all data |
-| `guesty webhooks` | List registered webhooks |
+| `guesty init [--skip-sync]` | Initialize with API credentials |
+| `guesty status [--json]` | Dashboard overview with stat boxes |
+| `guesty auth --refresh` | Force token refresh |
+| `guesty auth --revoke` | Clear cached token |
 
-### Write Operations
+### Listings (Properties)
 
-All write operations require `--live` to execute against the API. Without `--live`, they operate on local data or show what would happen.
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty listings [--active] [--city X] [--status X] [--json] [--csv] [--live]` | List all properties | Filter by city, status |
+| `guesty listing <nickname>` (shortcut) | Get property details | Auto-resolves nickname |
+| `guesty listing get <id_or_nickname>` | Get property details | |
+| `guesty listing create --title X [--nickname X] [--address X] [--city X] [--bedrooms N] [--bathrooms N] [--max-guests N] [--dry-run]` | Create listing | |
+| `guesty listing update <id_or_nickname> [--title X] [--nickname X] [--address X] [--city X] [--dry-run]` | Update listing | |
+| `guesty listing delete <id_or_nickname> --confirm` | Delete listing | Requires confirmation |
+
+### Reservations
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty reservations [--today] [--tomorrow] [--checkin YYYY-MM-DD] [--checkout YYYY-MM-DD] [--listing X] [--guest X] [--status X] [--unpaid] [--json] [--csv] [--live]` | List reservations | Multiple filters supported |
+| `guesty reservation <code>` (shortcut) | Get reservation details | Auto-resolves confirmation code |
+| `guesty reservation get <id_or_code>` | Get reservation + financials | Shows full breakdown |
+| `guesty reservation create --listing X --guest-name X --checkin YYYY-MM-DD --checkout YYYY-MM-DD [--dry-run] [--live]` | Create reservation | Dry-run by default |
+| `guesty reservation update <id_or_code> [--status X] [--notes X] [--dry-run] [--live]` | Update reservation | |
+| `guesty reservation cancel <id_or_code> [--confirm] [--live]` | Cancel reservation | Requires confirmation |
+| `guesty reservation approve <id_or_code> [--live]` | Approve inquiry | |
+| `guesty reservation decline <id_or_code> [--live]` | Decline inquiry | |
+
+### Calendar Management
 
 | Command | Description | Safety |
 |---------|-------------|--------|
-| `guesty listing create --title X --nickname X` | Create listing | `--dry-run` |
-| `guesty listing update <id> --title X` | Update listing | `--dry-run` |
-| `guesty listing delete <id>` | Delete listing | `--confirm` |
-| `guesty reservation create --listing X --guest-name X --checkin X --checkout X` | Create reservation | `--dry-run` |
-| `guesty reservation update <id> --status X --notes X` | Update reservation | `--dry-run` |
-| `guesty reservation cancel <id>` | Cancel reservation | `--confirm` |
-| `guesty reservation approve <id>` | Approve inquiry | `--live` |
-| `guesty reservation decline <id>` | Decline inquiry | `--live` |
-| `guesty owner create --name X --email X` | Create owner | `--dry-run` |
-| `guesty owner update <id> --name X` | Update owner | `--dry-run` |
-| `guesty owner delete <id>` | Delete owner | `--confirm` |
-| `guesty task create --title X --listing X` | Create task | `--dry-run` |
-| `guesty task update <id> --status X` | Update task | `--dry-run` |
-| `guesty task complete <id>` | Mark task done | `--live` |
-| `guesty task delete <id>` | Delete task | `--confirm` |
-| `guesty calendar block <listing> <date> [--to DATE]` | Block dates | `--dry-run` |
-| `guesty calendar unblock <listing> <date> [--to DATE]` | Unblock dates | `--dry-run` |
-| `guesty calendar price <listing> <date> <price> [--to DATE]` | Update pricing | `--dry-run` |
-| `guesty webhook create --url X --events X` | Create webhook | `--dry-run` |
-| `guesty webhook update <id> --events X` | Update webhook | `--dry-run` |
-| `guesty webhook delete <id>` | Delete webhook | `--confirm` |
-| `guesty webhook test <id>` | Send test ping | `--live` |
-| `guesty webhook watch [--port 8080]` | Local webhook listener | — |
+| `guesty calendar view <listing> [--from DATE] [--to DATE]` | View calendar | Read-only |
+| `guesty calendar sync <listing> --from DATE --to DATE [--dry-run]` | Sync calendar to local DB | Dry-run available |
+| `guesty calendar sync-all --from DATE --to DATE [--parallel N] [--dry-run]` | Sync all listings | Parallel processing |
+| `guesty calendar block <listing> <date> [--to DATE] [--reason X] [--dry-run] [--live]` | Block dates | Dry-run by default |
+| `guesty calendar unblock <listing> <date> [--to DATE] [--dry-run] [--live]` | Unblock dates | Dry-run by default |
+| `guesty calendar price <listing> <date> <price> [--to DATE] [--currency USD] [--dry-run] [--live]` | Update pricing | Dry-run by default |
+| `guesty calendar block-all --from DATE --to DATE --listings A,B,C [--reason X] [--parallel N] [--live]` | Block multiple | Parallel API calls |
+| `guesty calendar unblock-all --from DATE --to DATE --listings A,B,C [--parallel N] [--live]` | Unblock multiple | Parallel API calls |
+| `guesty calendar price-all --from DATE --to DATE --listings A,B,C --set PRICE [--live]` | Bulk price update | Parallel API calls |
+| `guesty calendar price-dynamic <listing> --from DATE --to DATE [--low-occupancy-threshold 30] [--high-occupancy-threshold 70] [--decrease-percent 10] [--increase-percent 15] [--min-price X] [--max-price X] [--live]` | Auto-adjust pricing | Based on occupancy |
 
-### Sync & Export
+### Guests
 
-| Command | Description |
-|---------|-------------|
-| `guesty sync` | Sync all data from Guesty API |
-| `guesty sync <table>` | Sync specific table (listings, reservations, guests, owners, reviews, tasks, webhooks) |
-| `guesty export <table> [--format csv\|json]` | Export table to file |
-| `guesty auth --refresh` | Force token refresh |
-| `guesty auth --revoke` | Clear cached token |
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty guests [--search NAME] [--limit N] [--json] [--csv] [--live]` | List/search guests | Search across names, email, phone |
+| `guesty guest <id_or_email> [--json] [--live]` | Guest details + reservation history | Shows full history |
+
+### Owners
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty owners [--active] [--json] [--csv] [--live]` | List all owners | |
+| `guesty owner get <id_or_name> [--json] [--live]` | Owner details + properties | Shows owned properties |
+| `guesty owner create --name X [--email X] [--phone X] [--dry-run] [--live]` | Create owner | |
+| `guesty owner update <id_or_name> [--email X] [--phone X] [--dry-run] [--live]` | Update owner | |
+| `guesty owner delete <id_or_name> --confirm [--live]` | Delete owner | Requires confirmation |
+| `guesty owner reservations <id_or_name> [--from DATE] [--to DATE] [--json] [--live]` | Owner's reservations | Date range filter |
+| `guesty owner statement <id_or_name> --month YYYY-MM [--management-fee 20] [--format text\|json]` | Generate owner statement | Payout calculation |
+
+### Users (Team)
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty users [--active] [--json] [--csv] [--live]` | List team users | Shows task counts |
+| `guesty user get <id_or_email> [--json] [--live]` | User details + assigned tasks | Shows workload |
+
+### Integrations (OTA Connections)
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty integrations [--platform X] [--status X] [--listing X] [--json] [--csv] [--live]` | List OTA connections | Filter by platform, status |
+| `guesty integration <id_or_name> [--health] [--json] [--live]` | Integration details | Health check included |
+
+### Tasks
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty tasks [--status X] [--listing X] [--priority X] [--limit N] [--json] [--csv] [--live]` | List tasks | Filter by status, priority |
+| `guesty task view <id> [--json] [--live]` | Task details | |
+| `guesty task create --title X --listing X [--priority medium] [--due DATE] [--assignee ID] [--description X] [--dry-run] [--live]` | Create task | |
+| `guesty task update <id> [--status X] [--priority X] [--assignee ID] [--dry-run] [--live]` | Update task | |
+| `guesty task complete <id> [--dry-run] [--live]` | Mark task completed | Shortcut for update --status |
+| `guesty task delete <id> --confirm [--live]` | Delete task | Requires confirmation |
+
+### Reviews
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty reviews [--listing X] [--rating N] [--platform X] [--limit N] [--json] [--csv] [--live]` | List reviews | Filter by rating, platform |
+
+### Webhooks
+
+| Command | Description | Safety |
+|---------|-------------|--------|
+| `guesty webhooks [--json] [--live]` | List registered webhooks | Read-only |
+| `guesty webhook create --url X --events X [--secret X] [--dry-run] [--live]` | Create webhook | Dry-run by default |
+| `guesty webhook update <id> --events X [--dry-run] [--live]` | Update webhook | Dry-run by default |
+| `guesty webhook delete <id> --confirm [--live]` | Delete webhook | Requires confirmation |
+| `guesty webhook test <id> [--live]` | Send test ping | |
+| `guesty webhook watch [--port 8080] [--json] [--queue] [--retry] [--persist]` | Local webhook listener | With queue & retry |
+| `guesty webhook queue [--pending] [--failed] [--retry] [--clear]` | Manage webhook queue | Process failed events |
+
+### Financials & Reporting
+
+| Command | Description | Output |
+|---------|-------------|--------|
+| `guesty financials revenue --month YYYY-MM [--listing X] [--owner X] [--json] [--csv]` | Monthly revenue report | By listing, by owner |
+| `guesty financials taxes --month YYYY-MM [--county monroe\|miami-dade] [--json] [--csv]` | Tourist/sales tax report | County breakdown |
+| `guesty financials dr15 --month YYYY-MM [--json] [--csv]` | DR-15 tax form ready | Florida DOR format |
+| `guesty financials summary [--listing X] [--from DATE] [--to DATE] [--type X] [--json]` | Financial summary | Legacy command |
+
+### Occupancy Analytics
+
+| Command | Description | Metrics |
+|---------|-------------|---------|
+| `guesty occupancy --month YYYY-MM [--listing X] [--json]` | Monthly occupancy report | Occ%, ADR, RevPAR |
+| `guesty occupancy --year YYYY [--listing X] [--json]` | Annual occupancy report | Monthly breakdown |
+| `guesty occupancy gaps --from DATE --to DATE [--listing X] [--max-gap 6] [--json]` | Gap night analysis | Revenue opportunities |
+
+### Views (Built-in Reports)
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty views --section reservations [--json] [--live]` | Guesty reservation views | Built-in reports |
+| `guesty views --section listings [--json] [--live]` | Guesty listing views | Built-in reports |
+
+### Statements
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty statements <owner_name> --month YYYY-MM [--management-fee 20] [--format text\|json] [--dry-run]` | Generate owner statement | Payout breakdown |
+
+### Search
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty search <query> [--table X] [--limit N] [--json] [--rebuild]` | Full-text search | FTS5 powered |
+
+### Sync
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty sync [endpoint] [--full] [--incremental] [--since TIMESTAMP] [--dry-run]` | Sync data from API | Endpoint or all |
+| `guesty sync --status` | Show sync status | With cursors |
+| `guesty sync --history` | Show sync history | Last 20 syncs |
+
+### Export
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty export <table> [--format csv\|json] [--output PATH] [--where "SQL"]` | Export table to file | SQL WHERE supported |
 
 ### Global Flags
 
 | Flag | Description |
 |------|-------------|
 | `--json` | Output as JSON (for piping/scripting) |
+| `--csv` | Output as CSV (for spreadsheets) |
 | `--no-color` | Disable colored terminal output |
 | `--version` | Show version |
 | `--help` | Show help for any command |
@@ -167,21 +269,84 @@ guesty_cli/
 │   ├── status.py      # Dashboard overview
 │   ├── listings.py    # Listings CRUD
 │   ├── reservations.py # Reservations CRUD
-│   ├── guests.py      # Guest lookup
-│   ├── owners.py      # Owners CRUD
 │   ├── calendar.py    # Calendar view, block/unblock/price
+│   ├── calendar_sync.py # Calendar sync operations
+│   ├── guests.py      # Guest lookup
+│   ├── owners.py      # Owners CRUD + statements
+│   ├── users.py       # Team user management
+│   ├── integrations.py # OTA integrations
 │   ├── tasks.py       # Tasks CRUD
 │   ├── reviews.py     # Review display
 │   ├── webhooks.py    # Webhooks CRUD + watch server
-│   ├── financials.py  # Revenue reports
+│   ├── financials.py  # Revenue, tax reports
+│   ├── occupancy.py   # Occupancy analytics
+│   ├── views.py       # Guesty built-in views
+│   ├── statements.py  # Owner statement generation
 │   ├── search.py      # FTS5 full-text search
-│   ├── sync.py        # API → SQLite sync
+│   ├── sync.py        # API → SQLite sync (with incremental)
 │   └── export.py      # CSV/JSON export
 └── utils/
     ├── dates.py       # Date parsing + formatting
     ├── filters.py     # Query filter builders
     └── resolve.py     # Nickname/name → ID resolution
 ```
+
+## API Coverage Matrix
+
+| Guesty API Endpoint | CLI Commands | Methods | Status |
+|---------------------|--------------|---------|--------|
+| **Authentication** | | | |
+| `POST /oauth2/token` | `guesty init`, `guesty auth` | POST | ✅ Full |
+| **Listings** | | | |
+| `GET /v1/listings` | `guesty listings`, `guesty sync listings` | GET | ✅ Full |
+| `GET /v1/listings/{id}` | `guesty listing get` | GET | ✅ Full |
+| `POST /v1/listings` | `guesty listing create --live` | POST | ✅ Full |
+| `PUT /v1/listings/{id}` | `guesty listing update --live` | PUT | ✅ Full |
+| `DELETE /v1/listings/{id}` | `guesty listing delete --live` | DELETE | ✅ Full |
+| **Reservations** | | | |
+| `GET /v1/reservations` | `guesty reservations`, `guesty sync reservations` | GET | ✅ Full |
+| `GET /v1/reservations/{id}` | `guesty reservation get` | GET | ✅ Full |
+| `POST /v1/reservations` | `guesty reservation create --live` | POST | ✅ Full |
+| `PUT /v1/reservations/{id}` | `guesty reservation update --live` | PUT | ✅ Full |
+| `POST /v1/reservations/{id}/cancel` | `guesty reservation cancel --live` | POST | ✅ Full |
+| `POST /v1/reservations/{id}/approve` | `guesty reservation approve --live` | POST | ✅ Full |
+| `POST /v1/reservations/{id}/decline` | `guesty reservation decline --live` | POST | ✅ Full |
+| **Calendar** | | | |
+| `GET /v1/availability-pricing/api/calendar/listings/{id}` | `guesty calendar view`, `guesty calendar sync` | GET | ✅ Full |
+| `PUT /v1/availability-pricing/api/calendar/listings/{id}` | `guesty calendar block/unblock/price --live` | PUT | ✅ Full |
+| **Guests** | | | |
+| `GET /v1/guests` | `guesty guests`, `guesty sync guests` | GET | ✅ Full |
+| `GET /v1/guests/{id}` | `guesty guest` | GET | ✅ Full |
+| **Owners** | | | |
+| `GET /v1/owners` | `guesty owners`, `guesty sync owners` | GET | ✅ Full |
+| `GET /v1/owners/{id}` | `guesty owner get` | GET | ✅ Full |
+| `POST /v1/owners` | `guesty owner create --live` | POST | ✅ Full |
+| `PUT /v1/owners/{id}` | `guesty owner update --live` | PUT | ✅ Full |
+| `DELETE /v1/owners/{id}` | `guesty owner delete --live` | DELETE | ✅ Full |
+| `GET /v1/owners/{id}/reservations` | `guesty owner reservations --live` | GET | ✅ Full |
+| **Users** | | | |
+| `GET /v1/users` | `guesty users`, `guesty sync users` | GET | ✅ Full |
+| `GET /v1/users/{id}` | `guesty user get` | GET | ✅ Full |
+| **Tasks** | | | |
+| `GET /v1/tasks` | `guesty tasks`, `guesty sync tasks` | GET | ✅ Full |
+| `GET /v1/tasks/{id}` | `guesty task view` | GET | ✅ Full |
+| `POST /v1/tasks` | `guesty task create --live` | POST | ✅ Full |
+| `PUT /v1/tasks/{id}` | `guesty task update --live` | PUT | ✅ Full |
+| `DELETE /v1/tasks/{id}` | `guesty task delete --live` | DELETE | ✅ Full |
+| **Reviews** | | | |
+| `GET /v1/reviews` | `guesty reviews`, `guesty sync reviews` | GET | ✅ Full |
+| **Webhooks** | | | |
+| `GET /v1/webhooks` | `guesty webhooks`, `guesty sync webhooks` | GET | ✅ Full |
+| `POST /v1/webhooks` | `guesty webhook create --live` | POST | ✅ Full |
+| `PUT /v1/webhooks/{id}` | `guesty webhook update --live` | PUT | ✅ Full |
+| `DELETE /v1/webhooks/{id}` | `guesty webhook delete --live` | DELETE | ✅ Full |
+| **Views** | | | |
+| `GET /v1/views` | `guesty views --section` | GET | ✅ Full |
+| **Integrations** | | | |
+| `GET /v1/integrations` | `guesty integrations --live` | GET | ⚠️ Mock data fallback |
+| `GET /v1/channels` | `guesty integrations --live` | GET | ⚠️ Fallback endpoint |
+
+Legend: ✅ Full support | ⚠️ Partial/Fallback | ❌ Not implemented
 
 ## Guesty API Compliance
 
@@ -201,58 +366,19 @@ This CLI fully respects Guesty's API constraints:
 | **SSL verification** | Enabled (no bypass) |
 | **Request timeout** | 30 seconds per request |
 
-### API Endpoints Used
+### Incremental Sync Support
 
-| Endpoint | Method | Used By |
-|----------|--------|---------|
-| `POST /oauth2/token` | POST | `guesty auth` |
-| `GET /v1/listings` | GET | `guesty listings`, `guesty sync listings` |
-| `POST /v1/listings` | POST | `guesty listing create --live` |
-| `PUT /v1/listings/{id}` | PUT | `guesty listing update --live` |
-| `DELETE /v1/listings/{id}` | DELETE | `guesty listing delete --live` |
-| `GET /v1/reservations` | GET | `guesty reservations`, `guesty sync reservations` |
-| `POST /v1/reservations` | POST | `guesty reservation create --live` |
-| `PUT /v1/reservations/{id}` | PUT | `guesty reservation update --live` |
-| `POST /v1/reservations/{id}/cancel` | POST | `guesty reservation cancel --live` |
-| `POST /v1/reservations/{id}/approve` | POST | `guesty reservation approve --live` |
-| `POST /v1/reservations/{id}/decline` | POST | `guesty reservation decline --live` |
-| `GET /v1/guests` | GET | `guesty guests`, `guesty sync guests` |
-| `GET /v1/owners-reservations/owners` | GET | `guesty owners`, `guesty sync owners` |
-| `POST /v1/owners-reservations/owners` | POST | `guesty owner create --live` |
-| `PUT /v1/owners-reservations/owners/{id}` | PUT | `guesty owner update --live` |
-| `DELETE /v1/owners-reservations/owners/{id}` | DELETE | `guesty owner delete --live` |
-| `GET /v1/reviews` | GET | `guesty reviews`, `guesty sync reviews` |
-| `GET /v1/tasks` | GET | `guesty tasks`, `guesty sync tasks` |
-| `POST /v1/tasks` | POST | `guesty task create --live` |
-| `PUT /v1/tasks/{id}` | PUT | `guesty task update --live` |
-| `DELETE /v1/tasks/{id}` | DELETE | `guesty task delete --live` |
-| `GET /v1/availability-pricing/api/calendar/listings/{id}` | GET | `guesty calendar` |
-| `PUT /v1/availability-pricing/api/calendar/listings/{id}` | PUT | `guesty calendar block/unblock/price --live` |
-| `GET /v1/webhooks` | GET | `guesty webhooks`, `guesty sync webhooks` |
-| `POST /v1/webhooks` | POST | `guesty webhook create --live` |
-| `PUT /v1/webhooks/{id}` | PUT | `guesty webhook update --live` |
-| `DELETE /v1/webhooks/{id}` | DELETE | `guesty webhook delete --live` |
+Endpoints supporting incremental sync via `lastUpdatedAt`:
 
-### Important: Reservation Fields
-
-The Guesty API returns **minimal fields by default** for reservations. To get full data (status, source, prices, guest info), the sync command requests these fields explicitly:
-
-```
-confirmationCode status source checkIn checkOut checkInDateLocalized checkOutDateLocalized
-listingId guestId guest.firstName guest.lastName guest.fullName guest.email guest.phone
-money.hostPayout money.totalPaid money.balanceDue money.currency
-nightsCount guestsCount createdAt confirmedAt
-```
-
-### Source Name Mapping
-
-| API Value | Display Name |
-|-----------|-------------|
-| `airbnb2` | Airbnb |
-| `homeaway2` | VRBO |
-| `bookingcom` | Booking.com |
-| `BE-API` | Direct |
-| `manual` | Manual |
+- ✅ `listings` — Full incremental support
+- ✅ `reservations` — Full incremental support
+- ✅ `guests` — Full incremental support
+- ✅ `reviews` — Full incremental support
+- ✅ `tasks` — Full incremental support
+- ✅ `users` — Full incremental support
+- ⚠️ `owners` — Full sync only
+- ⚠️ `financials` — Full sync only
+- ⚠️ `webhooks` — Full sync only
 
 ## For AI Agents
 
@@ -291,7 +417,7 @@ python -m guesty_cli.main status
 3. **Use `--dry-run` before writes** — Preview changes before executing with `--live`
 4. **Use nicknames for listings** — `guesty listing get "Emerald Oasis"` works (resolves from local DB)
 5. **Use confirmation codes for reservations** — `guesty reservation get "HM4STAP88M"` (resolves from local DB)
-6. **Check rate limits** — Token limit is 5 per 24h. The CLI caches tokens automatically, but avoid calling `guesty auth --revoke` unnecessarily
+6. **Check rate limits** — Token limit is 5 per 24h. The CLI caches tokens automatically
 7. **Search locally** — `guesty search "pool"` uses FTS5 locally, no API call needed
 8. **Export for analysis** — `guesty export reservations --format json` for bulk data processing
 
@@ -318,8 +444,169 @@ guesty calendar block "Emerald Oasis" 2025-04-01 --to 2025-04-05 --reason "Pool 
 guesty task create --title "Fix pool heater" --listing "Emerald Oasis" --priority high --dry-run
 guesty task create --title "Fix pool heater" --listing "Emerald Oasis" --priority high --live
 
+# Generate monthly owner statement
+guesty owner statement "John Smith" --month 2024-03 --management-fee 20 --format json
+
+# Check occupancy and find gaps
+guesty occupancy --month 2024-03 --json
+guesty occupancy gaps --from 2024-04-01 --to 2024-04-30 --json
+
 # Listen for webhook events
 guesty webhook watch --port 8080 --json
+```
+
+### JSON Output Examples
+
+#### Reservation Detail
+```bash
+$ guesty reservation get HM4STAP88M --json
+```
+
+```json
+{
+  "id": "65a1b2c3d4e5f6g7h8i9j0k1",
+  "confirmationCode": "HM4STAP88M",
+  "status": "confirmed",
+  "source": "airbnb2",
+  "checkIn": "2024-03-15T15:00:00.000Z",
+  "checkOut": "2024-03-20T11:00:00.000Z",
+  "listingId": "listing_123",
+  "listingNickname": "Sunset Villa",
+  "guestName": "Jane Smith",
+  "guestEmail": "jane@example.com",
+  "guestPhone": "+1-555-123-4567",
+  "nightsCount": 5,
+  "guestsCount": 4,
+  "totalPrice": 2850.00,
+  "payoutAmount": 2650.50,
+  "balanceDue": 0.00,
+  "currency": "USD"
+}
+```
+
+#### Revenue Report
+```bash
+$ guesty financials revenue --month 2024-03 --json
+```
+
+```json
+{
+  "month": "2024-03",
+  "summary": {
+    "total_revenue": 45250.00,
+    "accommodation_fare": 38500.00,
+    "cleaning_fees": 4200.00,
+    "additional_fees": 1550.00,
+    "platform_fees": 3250.00,
+    "discounts": 800.00,
+    "taxes_collected": 4525.00,
+    "net_revenue": 38200.00,
+    "reservation_count": 28
+  },
+  "by_listing": {
+    "Sunset Villa": {
+      "revenue": 12500.00,
+      "cleaning_fees": 1200.00,
+      "platform_fees": 875.00,
+      "net_revenue": 10825.00,
+      "reservation_count": 8
+    }
+  },
+  "by_owner": {
+    "John Smith": {
+      "revenue": 18750.00,
+      "net_revenue": 15937.50,
+      "reservation_count": 12
+    }
+  }
+}
+```
+
+#### Occupancy Report
+```bash
+$ guesty occupancy --month 2024-03 --json
+```
+
+```json
+{
+  "period_start": "2024-03-01",
+  "period_end": "2024-03-31",
+  "total_days": 31,
+  "available_days": 28,
+  "booked_days": 22,
+  "blocked_days": 3,
+  "occupancy_rate": 78.57,
+  "total_revenue": 45250.00,
+  "total_nights": 98,
+  "adr": 461.73,
+  "revpar": 362.95,
+  "reservation_count": 28
+}
+```
+
+#### Gap Analysis
+```bash
+$ guesty occupancy gaps --from 2024-04-01 --to 2024-04-30 --json
+```
+
+```json
+[
+  {
+    "listing_id": "listing_123",
+    "listing_name": "Sunset Villa",
+    "gap_start": "2024-04-05",
+    "gap_end": "2024-04-06",
+    "gap_nights": 2,
+    "before_reservation_id": "res_001",
+    "after_reservation_id": "res_002",
+    "current_avg_price": 450.00,
+    "suggested_adjustment": -5,
+    "suggested_adjustment_display": "-5%",
+    "days_until": 28,
+    "urgency": "Low"
+  }
+]
+```
+
+#### Owner Statement
+```bash
+$ guesty owner statement "John Smith" --month 2024-03 --format json
+```
+
+```json
+{
+  "owner_name": "John Smith",
+  "month": "2024-03",
+  "management_fee_rate": 20.0,
+  "gross_revenue": 18750.00,
+  "cleaning_fees": 1800.00,
+  "platform_fees": 1312.50,
+  "management_fee": 3750.00,
+  "net_payout": 15487.50,
+  "by_property": {
+    "Sunset Villa": 12500.00,
+    "Ocean View": 6250.00
+  }
+}
+```
+
+#### Webhook Event
+```bash
+$ guesty webhook watch --port 8080 --json
+```
+
+```json
+{
+  "event": "reservation.new",
+  "timestamp": "2024-03-15T10:30:00.000Z",
+  "reservation": {
+    "_id": "65a1b2c3d4e5f6g7h8i9j0k1",
+    "confirmationCode": "HM4STAP88M",
+    "status": "confirmed",
+    "checkIn": "2024-04-01",
+    "checkOut": "2024-04-05"
+  }
+}
 ```
 
 ## Database Schema
@@ -332,12 +619,19 @@ The local SQLite database stores synced data for fast offline queries:
 | `reservations` | id, confirmationCode, guestId, listingId, checkIn, checkOut, status, source, totalPrice | Booking data |
 | `guests` | id, fullName, email, phone, nationality | Guest directory |
 | `owners` | id, fullName, email, phone, isActive | Property owners |
+| `users` | id, firstName, lastName, email, role, active | Team members |
 | `reviews` | id, listingId, rating, content, guestName | Guest reviews |
 | `tasks` | id, listingId, title, status, priority, dueDate | Maintenance tasks |
 | `webhooks` | id, url, events, active | Webhook registrations |
 | `financials` | id, reservationId, type, description, amount | Financial line items |
+| `invoice_items` | id, reservation_id, listing_id, type, description, amount | Invoice breakdown |
+| `tax_line_items` | id, reservation_id, listing_id, name, rate, amount | Tax details |
+| `calendar_days` | id, listing_id, date, status, price, min_stay, reservation_id | Calendar cache |
 | `search_index` | FTS5 virtual table | Full-text search across all data |
 | `auth_tokens` | token, expires_at, created_at | Token cache (auto-managed) |
+| `sync_log` | endpoint, timestamp, records_synced, duration_seconds, status | Sync history |
+| `sync_cursors` | table_name, last_cursor, last_synced_at, record_count, status | Incremental sync cursors |
+| `webhook_events` | id, event_type, payload, status, retry_count, created_at | Webhook queue |
 
 ## Requirements
 

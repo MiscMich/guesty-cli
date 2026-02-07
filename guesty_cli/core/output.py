@@ -479,6 +479,21 @@ def print_table(headers: list, rows: list, max_widths: Optional[list] = None) ->
     # Calculate: borders + padding + separators
     total_width = sum(col_widths) + (3 * num_cols) + 1
     
+    # Use at least 60% of terminal width before truncating
+    min_desired_width = int(term_width * 0.6)
+    
+    # If terminal is wide (>120 cols), let columns breathe more
+    if term_width > 120:
+        # Add extra space to columns that need it
+        for i in range(num_cols):
+            header_lower = str(headers[i]).lower() if i < len(headers) else ""
+            # Give more space to name/guest columns
+            if any(k in header_lower for k in ['name', 'guest', 'title']):
+                if col_widths[i] < 25:
+                    col_widths[i] = min(25, col_widths[i] + 5)
+        # Recalculate total
+        total_width = sum(col_widths) + (3 * num_cols) + 1
+    
     if total_width > term_width:
         # Need to truncate some columns from the right
         excess = total_width - term_width
@@ -486,7 +501,14 @@ def print_table(headers: list, rows: list, max_widths: Optional[list] = None) ->
         for i in range(num_cols - 1, -1, -1):
             if excess <= 0:
                 break
-            available = col_widths[i] - 5  # Keep at least 5 chars
+            header_lower = str(headers[i]).lower() if i < len(headers) else ""
+            # Get minimum for this column
+            min_for_col = 5
+            for key, mw in min_widths.items():
+                if key in header_lower:
+                    min_for_col = max(min_for_col, mw)
+                    break
+            available = col_widths[i] - min_for_col
             if available > 0:
                 shrink = min(available, excess)
                 col_widths[i] -= shrink

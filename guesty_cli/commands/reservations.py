@@ -13,6 +13,27 @@ from guesty_cli.core.output import (
 from guesty_cli.utils.dates import parse_date
 
 
+def clean_date(iso_str):
+    """Format ISO date string to clean YYYY-MM-DD format."""
+    if not iso_str:
+        return 'N/A'
+    return iso_str[:10]  # Just YYYY-MM-DD
+
+
+def format_source(source_str):
+    """Map API source values to friendly names."""
+    if not source_str:
+        return 'N/A'
+    source_map = {
+        'airbnb2': 'Airbnb',
+        'homeaway2': 'VRBO',
+        'bookingcom': 'Booking',
+        'BE-API': 'Direct',
+        'manual': 'Manual',
+    }
+    return source_map.get(source_str, source_str)
+
+
 def _get_guest_name(row):
     """Extract guest name from row, using direct column or joining from guests table."""
     # First try direct guestName column
@@ -365,12 +386,12 @@ def run_list(args):
 
         rows.append([
             r.get('confirmationCode', 'N/A'),
-            guest_name[:25] if guest_name else 'N/A',
-            listing_name[:20] if listing_name else 'N/A',
-            r.get('checkIn', 'N/A')[:10] if r.get('checkIn') else 'N/A',
-            r.get('checkOut', 'N/A')[:10] if r.get('checkOut') else 'N/A',
+            guest_name[:30] if guest_name else 'N/A',
+            listing_name[:25] if listing_name else 'N/A',
+            clean_date(r.get('checkIn')),
+            clean_date(r.get('checkOut')),
             status,
-            source,
+            format_source(source),
             format_money(price, r.get('currency', 'USD')),
         ])
 

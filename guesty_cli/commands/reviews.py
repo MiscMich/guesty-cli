@@ -21,8 +21,8 @@ def _get_rating_from_row(row):
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
-            # Try rawReview.overall_rating
-            raw_review = raw.get('rawReview', {})
+            # Try raw_review.overall_rating
+            raw_review = raw.get('raw_review', {})
             if raw_review:
                 rating = raw_review.get('overall_rating')
                 if rating:
@@ -40,7 +40,7 @@ def _get_rating_from_row(row):
 def _get_reviewer_name_from_row(row, db=None):
     """Extract reviewer name from row."""
     # Try direct column
-    name = row.get('reviewerName')
+    name = row.get('reviewer_name')
     if name:
         return name
     
@@ -54,8 +54,8 @@ def _get_reviewer_name_from_row(row, db=None):
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
-            # Try rawReview.guest_name
-            raw_review = raw.get('rawReview', {})
+            # Try raw_review.guest_name
+            raw_review = raw.get('raw_review', {})
             if raw_review:
                 name = raw_review.get('guest_name')
                 if name:
@@ -97,8 +97,8 @@ def _get_platform_from_row(row):
             platform = raw.get('source')
             if platform:
                 return platform
-            # Try rawReview
-            raw_review = raw.get('rawReview', {})
+            # Try raw_review
+            raw_review = raw.get('raw_review', {})
             if raw_review:
                 platform = raw_review.get('channel_name') or raw_review.get('platform')
                 if platform:
@@ -124,8 +124,8 @@ def _get_content_from_row(row):
             content = raw.get('publicReview') or raw.get('review')
             if content:
                 return content
-            # Try rawReview
-            raw_review = raw.get('rawReview', {})
+            # Try raw_review
+            raw_review = raw.get('raw_review', {})
             if raw_review:
                 content = raw_review.get('public_review') or raw_review.get('review')
                 if content:
@@ -190,12 +190,12 @@ def run_list(args):
         # Use JOIN to get listing nickname
         query = """SELECT r.*, l.nickname as listing_nickname
                    FROM reviews r
-                   LEFT JOIN listings l ON r.listingId = l.id
+                   LEFT JOIN listings l ON r.listing_id = l.id
                    WHERE 1=1"""
         params = []
 
         if args.listing:
-            query += " AND r.listingId = ?"
+            query += " AND r.listing_id = ?"
             params.append(args.listing)
         if args.rating:
             query += " AND (r.rating >= ? OR (r.rating IS NULL OR r.rating = 0))"
@@ -204,7 +204,7 @@ def run_list(args):
             query += " AND (r.platform = ? OR r.platform IS NULL)"
             params.append(args.platform)
 
-        query += " ORDER BY r.createdAt DESC LIMIT ?"
+        query += " ORDER BY r.created_at DESC LIMIT ?"
         params.append(args.limit)
 
         try:
@@ -222,7 +222,7 @@ def run_list(args):
     db = get_db()
     guest_cache = {}
     for r in reviews:
-        if not r.get('reviewerName'):
+        if not r.get('reviewer_name'):
             # Try to get guestId from raw_json
             raw_json = r.get('raw_json')
             if raw_json:
@@ -238,7 +238,7 @@ def run_list(args):
                             except:
                                 guest_cache[guest_id] = None
                         if guest_cache[guest_id]:
-                            r['reviewerName'] = guest_cache[guest_id]
+                            r['reviewer_name'] = guest_cache[guest_id]
                 except:
                     pass
 
@@ -256,7 +256,7 @@ def run_list(args):
         reviewer_name = _get_reviewer_name_from_row(r)
         listing_name = r.get('listing_nickname') or r.get('listingId') or 'N/A'
         platform = _get_platform_from_row(r)
-        created_at = r.get('createdAt')
+        created_at = r.get('created_at')
 
         rows.append([
             reviewer_name[:20],

@@ -173,6 +173,64 @@ CREATE TABLE IF NOT EXISTS sync_log (
 );
 """
 
+INVOICE_ITEMS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS invoice_items (
+    id TEXT PRIMARY KEY,
+    reservation_id TEXT,
+    listing_id TEXT,
+    type TEXT,
+    description TEXT,
+    amount REAL,
+    currency TEXT,
+    taxable INTEGER,
+    created_at TEXT,
+    updated_at TEXT,
+    raw_data TEXT
+);
+"""
+
+TAX_LINE_ITEMS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS tax_line_items (
+    id TEXT PRIMARY KEY,
+    reservation_id TEXT,
+    listing_id TEXT,
+    tax_name TEXT,
+    tax_rate REAL,
+    taxable_amount REAL,
+    tax_amount REAL,
+    county TEXT,
+    reporting_period TEXT,
+    created_at TEXT,
+    updated_at TEXT,
+    raw_data TEXT
+);
+"""
+
+SYNC_CURSORS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sync_cursors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_name TEXT UNIQUE,
+    last_cursor TEXT,
+    last_synced_at TEXT,
+    record_count INTEGER,
+    status TEXT
+);
+"""
+
+# Calendar days table for storing calendar sync data
+CALENDAR_DAYS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS calendar_days (
+    id TEXT PRIMARY KEY,
+    listing_id TEXT,
+    date TEXT,
+    status TEXT,
+    price REAL,
+    min_stay INTEGER,
+    reservation_id TEXT,
+    raw_data TEXT
+);
+"""
+
 # FTS5 virtual table for full-text search
 FTS_SCHEMA = """
 CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
@@ -194,6 +252,10 @@ ALL_SCHEMAS = [
     USERS_SCHEMA,
     INTEGRATIONS_SCHEMA,
     SYNC_LOG_SCHEMA,
+    INVOICE_ITEMS_SCHEMA,
+    TAX_LINE_ITEMS_SCHEMA,
+    SYNC_CURSORS_SCHEMA,
+    CALENDAR_DAYS_SCHEMA,
     FTS_SCHEMA,
 ]
 
@@ -827,3 +889,165 @@ def log_sync(
     """, (timestamp, endpoint, count, duration, status, error))
     
     conn.commit()
+
+
+def get_sync_cursor(conn: sqlite3.Connection, table_name: str) -> dict:
+    """Get the last sync cursor for a table.
+    
+    Args:
+        conn: Database connection.
+        table_name: Name of the table.
+        
+    Returns:
+        dict: Cursor info with last_cursor, last_synced_at, etc.
+    """
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT last_cursor, last_synced_at, record_count, status
+        FROM sync_cursors
+        WHERE table_name = ?
+        ORDER BY id DESC LIMIT 1
+    """, (table_name,))
+    
+    row = cursor.fetchone()
+    if row:
+        return {
+            'last_cursor': row['last_cursor'],
+            'last_synced_at': row['last_synced_at'],
+            'record_count': row['record_count'],
+            'status': row['status']
+        }
+    return {}
+
+
+def upsert_sync_cursor(
+    conn: sqlite3.Connection,
+    table_name: str,
+    cursor_value: str,
+    record_count: int = 0,
+    status: str = "success"
+) -> None:
+    """Update or insert a sync cursor for a table.
+    
+    Args:
+        conn: Database connection.
+        table_name: Name of the table.
+        cursor_value: The cursor value (timestamp or ID).
+        record_count: Number of records synced.
+        status: Sync status ('success' or 'error').
+    """
+    cursor = conn.cursor()
+    
+    timestamp = datetime.now(timezone.utc).isoformat()
+    
+    # Delete old cursor for this table, then insert new one
+    cursor.execute("DELETE FROM sync_cursors WHERE table_name = ?", (table_name,))
+    cursor.execute("""
+        INSERT INTO sync_cursors (table_name, last_cursor, last_synced_at, record_count, status)
+        VALUES (?, ?, ?, ?, ?)
+    """, (table_name, cursor_value, timestamp, record_count, status))
+    
+    conn.commit()
+
+
+def upsert_invoice_items(conn: sqlite3.Connection, items: list) -> int:
+    """Upsert invoice items into database.
+    
+    Args:
+        conn: Database connection.
+        items: List of invoice item dictionaries.
+        
+    Returns:
+        int: Number of records upserted.
+    """
+    cursor = conn.cursor()
+    count = 0
+    
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+            
+        item_id = item.get("_id") or item.get("id")
+        if not item_id:
+            # Generate a unique ID if none exists
+            import hashlib
+            reservation_id = item.get("reservation_id", "")
+            item_type = item.get("type", "")
+            desc = item.get("description", "")
+            item_id = hashlib.md5(f"{reservation_id}:{item_type}:{desc}".encode()).hexdigest()
+        
+        cursor.execute("""
+            INSERT OR REPLACE INTO invoice_items (
+                id, reservation_id, listing_id, type, description,
+                amount, currency, taxable, created_at, updated_at, raw_data
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            item_id,
+            item.get("reservation_id") or item.get("reservationId"),
+            item.get("listing_id") or item.get("listingId"),
+            item.get("type"),
+            item.get("description"),
+            item.get("amount"),
+            item.get("currency"),
+            1 if item.get("taxable") else 0,
+            item.get("createdAt"),
+            item.get("updatedAt"),
+            json.dumps(item),
+        ))
+        count += 1
+    
+    conn.commit()
+    return count
+
+
+def upsert_tax_line_items(conn: sqlite3.Connection, items: list) -> int:
+    """Upsert tax line items into database.
+    
+    Args:
+        conn: Database connection.
+        items: List of tax line item dictionaries.
+        
+    Returns:
+        int: Number of records upserted.
+    """
+    cursor = conn.cursor()
+    count = 0
+    
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+            
+        item_id = item.get("_id") or item.get("id")
+        if not item_id:
+            # Generate a unique ID if none exists
+            import hashlib
+            reservation_id = item.get("reservation_id", "")
+            tax_name = item.get("taxName", "")
+            county = item.get("county", "")
+            item_id = hashlib.md5(f"{reservation_id}:{tax_name}:{county}".encode()).hexdigest()
+        
+        cursor.execute("""
+            INSERT OR REPLACE INTO tax_line_items (
+                id, reservation_id, listing_id, tax_name, tax_rate,
+                taxable_amount, tax_amount, county, reporting_period,
+                created_at, updated_at, raw_data
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            item_id,
+            item.get("reservation_id") or item.get("reservationId"),
+            item.get("listing_id") or item.get("listingId"),
+            item.get("taxName"),
+            item.get("taxRate"),
+            item.get("taxableAmount"),
+            item.get("taxAmount"),
+            item.get("county"),
+            item.get("reportingPeriod"),
+            item.get("createdAt"),
+            item.get("updatedAt"),
+            json.dumps(item),
+        ))
+        count += 1
+    
+    conn.commit()
+    return count

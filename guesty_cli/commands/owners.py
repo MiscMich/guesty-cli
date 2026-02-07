@@ -6,7 +6,8 @@ from guesty_cli.core.output import (
     print_table, print_card, print_json, print_csv,
     bold, cyan, green, red, yellow, dim, format_money
 )
-from guesty_cli.utils.resolve import resolve_owner
+from guesty_cli.utils.resolve import resolve_owner, resolve_listing
+from guesty_cli.commands.statements import register_owner_statement
 
 
 def register(subparsers):
@@ -57,7 +58,20 @@ def register(subparsers):
     delete_parser.add_argument('id_or_name', help='Owner ID or name')
     delete_parser.add_argument('--confirm', action='store_true', required=True, help='Confirm deletion (required)')
     delete_parser.set_defaults(func=run_delete)
-    
+
+    # Owner reservations
+    reservations_parser = owner_subparsers.add_parser('reservations', help='Show reservations for an owner')
+    reservations_parser.add_argument('id_or_name', help='Owner ID or name')
+    reservations_parser.add_argument('--from', dest='from_date', help='Start date (YYYY-MM-DD)')
+    reservations_parser.add_argument('--to', dest='to_date', help='End date (YYYY-MM-DD)')
+    reservations_parser.add_argument('--json', action='store_true', help='Output as JSON')
+    reservations_parser.add_argument('--live', action='store_true', help='Query live API')
+    reservations_parser.add_argument('--dry-run', action='store_true', help='Show what would be queried without calling API')
+    reservations_parser.set_defaults(func=run_owner_reservations)
+
+    # Owner statement - register from statements module
+    register_owner_statement(owner_subparsers)
+
     # Default handler
     def default_handler(args):
         if hasattr(args, 'func') and args.func != default_handler:
@@ -97,7 +111,7 @@ def run_list(args):
         if args.active:
             query += " AND active = 1"
         
-        query += " ORDER BY fullName"
+        query += " ORDER BY full_name"
         
         try:
             cursor = db.execute(query, params)
@@ -122,7 +136,7 @@ def run_list(args):
             payout_method = pm
         
         rows.append([
-            o.get('fullName', 'N/A'),
+            o.get('full_name', 'N/A'),
             o.get('email', 'N/A'),
             o.get('phone', 'N/A') or 'N/A',
             payout_method,
@@ -156,7 +170,7 @@ def run_get(args):
                 if not isinstance(owners, list):
                     owners = owners.get('results', [])
                 for o in owners:
-                    if o.get('fullName') == args.id_or_name or o.get('full_name') == args.id_or_name:
+                    if o.get('full_name') == args.id_or_name or o.get('full_name') == args.id_or_name:
                         owner = o
                         break
                 else:
@@ -226,7 +240,7 @@ def run_get(args):
     
     card_data = {
         'ID': owner.get('id'),
-        'Name': owner.get('fullName', 'N/A'),
+        'Name': owner.get('full_name', 'N/A'),
         'Email': owner.get('email', 'N/A'),
         'Phone': owner.get('phone', 'N/A') or 'N/A',
         'Payout Method': payout_info,
@@ -283,7 +297,7 @@ def run_create(args):
         return
     
     data = {
-        'fullName': args.name,
+        'full_name': args.name,
     }
     
     if args.email:
@@ -293,7 +307,7 @@ def run_create(args):
     
     if args.dry_run:
         print(yellow("DRY RUN - Would create owner:"))
-        print(f"  Name: {data['fullName']}")
+        print(f"  Name: {data['full_name']}")
         if 'email' in data:
             print(f"  Email: {data['email']}")
         if 'phone' in data:
@@ -306,7 +320,7 @@ def run_create(args):
         result = client.api_post('/v1/owners', data)
         print(green(f"✓ Owner created"))
         print(f"  ID: {result.get('_id')}")
-        print(f"  Name: {result.get('fullName')}")
+        print(f"  Name: {result.get('full_name')}")
         if result.get('email'):
             print(f"  Email: {result.get('email')}")
     except Exception as e:
@@ -341,7 +355,7 @@ def run_update(args):
         return
     
     if args.dry_run:
-        print(yellow(f"DRY RUN - Would update owner {owner['fullName']} ({owner['id']}):"))
+        print(yellow(f"DRY RUN - Would update owner {owner['full_name']} ({owner['id']}):"))
         for key, value in data.items():
             print(f"  {key}: {value}")
         return
@@ -350,7 +364,7 @@ def run_update(args):
     
     try:
         result = client.api_put(f'/v1/owners/{owner["id"]}', data)
-        print(green(f"✓ Owner updated: {result.get('fullName')}"))
+        print(green(f"✓ Owner updated: {result.get('full_name')}"))
     except Exception as e:
         print(red(f"Error updating owner: {e}"))
 
@@ -358,28 +372,259 @@ def run_update(args):
 def run_delete(args):
     """Delete an owner."""
     config = load_config()
-    
+
     if not config:
         print(red("Error: Not configured. Run 'guesty init' first."))
         return
-    
+
     # Resolve owner
     db = get_db()
     owner = resolve_owner(db, args.id_or_name)
     if not owner:
         print(red(f"Error: Owner '{args.id_or_name}' not found"))
         return
-    
+
     # Show owner details before deleting
     print(yellow("About to delete the following owner:"))
     print(f"  ID: {owner['id']}")
-    print(f"  Name: {owner['fullName']}")
+    print(f"  Name: {owner['full_name']}")
     print()
-    
+
     client = GuestyClient(config)
-    
+
     try:
         client.api_delete(f'/v1/owners/{owner["id"]}')
-        print(green(f"✓ Owner '{owner['fullName']}' deleted"))
+        print(green(f"✓ Owner '{owner['full_name']}' deleted"))
     except Exception as e:
         print(red(f"Error deleting owner: {e}"))
+
+
+def run_owner_reservations(args):
+    """Show reservations for a specific owner."""
+    config = load_config()
+    db = get_db()
+
+    # Resolve owner
+    owner = resolve_owner(db, args.id_or_name)
+    if not owner:
+        print(red(f"Error: Owner '{args.id_or_name}' not found"))
+        print(yellow("Tip: Use 'guesty owners' to see available owners"))
+        return
+
+    owner_id = owner['id']
+    owner_name = owner.get('full_name', 'Unknown')
+
+    # Date range filtering
+    date_filter_desc = ""
+    if args.from_date:
+        date_filter_desc += f" from {args.from_date}"
+    if args.to_date:
+        date_filter_desc += f" to {args.to_date}"
+
+    if args.dry_run:
+        print(yellow(f"DRY RUN - Would query reservations for owner: {owner_name} ({owner_id})"))
+        if args.from_date:
+            print(f"  Start date: {args.from_date}")
+        if args.to_date:
+            print(f"  End date: {args.to_date}")
+        print(dim("\nAPI endpoint: GET /v1/owners/{id}/reservations"))
+        return
+
+    reservations = []
+    listings_map = {}
+    use_database = True
+
+    if args.live:
+        if not config:
+            print(red("Error: Not configured. Run 'guesty init' first."))
+            return
+
+        client = GuestyClient(config)
+
+        try:
+            # Build query params for date filtering
+            params = {}
+            if args.from_date:
+                params['checkInDateFrom'] = args.from_date
+            if args.to_date:
+                params['checkInDateTo'] = args.to_date
+
+            # Call the API endpoint
+            result = client.api_get(f'/v1/owners/{owner_id}/reservations', params=params if params else None)
+
+            # Handle different response formats
+            if isinstance(result, list):
+                reservations = result
+                use_database = False
+            elif isinstance(result, dict):
+                reservations = result.get('results', [])
+                use_database = False
+            else:
+                reservations = []
+
+        except Exception as e:
+            print(yellow(f"Note: Live API endpoint not available ({e}). Falling back to local database..."))
+            print(dim("Tip: Run 'guesty sync' to update local data.\n"))
+            # Will fall through to database query
+
+    # Query from local database if needed
+    if use_database:
+        try:
+            cursor = db.execute("SELECT id, nickname, raw_json FROM listings")
+            owner_listing_ids = []
+            for row in cursor.fetchall():
+                raw_json = row['raw_json']
+                if raw_json:
+                    import json
+                    listing_data = json.loads(raw_json)
+                    owners = listing_data.get('owners', [])
+                    if owner_id in owners:
+                        owner_listing_ids.append(row['id'])
+                        listings_map[row['id']] = row['nickname']
+
+            if not owner_listing_ids:
+                print(yellow(f"No listings found for owner: {owner_name}"))
+                return
+
+            # Build query for reservations
+            placeholders = ','.join('?' * len(owner_listing_ids))
+            query = f"""
+                SELECT r.*, l.nickname as listing_nickname
+                FROM reservations r
+                LEFT JOIN listings l ON r.listingId = l.id
+                WHERE r.listingId IN ({placeholders})
+            """
+            params = list(owner_listing_ids)
+
+            # Add date filtering
+            if args.from_date:
+                query += " AND r.checkIn >= ?"
+                params.append(args.from_date)
+            if args.to_date:
+                query += " AND r.checkOut <= ?"
+                params.append(args.to_date)
+
+            query += " ORDER BY r.checkIn DESC"
+
+            cursor = db.execute(query, params)
+            reservations = [dict(row) for row in cursor.fetchall()]
+
+            # Build listings map for display
+            for r in reservations:
+                if r.get('listingId') and r['listingId'] not in listings_map:
+                    listings_map[r['listingId']] = r.get('listing_nickname', 'Unknown')
+
+        except Exception as e:
+            print(red(f"Error querying database: {e}"))
+            return
+
+    if not reservations:
+        print(yellow(f"No reservations found for owner: {owner_name}{date_filter_desc}"))
+        return
+
+    # Calculate total revenue
+    total_revenue = 0.0
+    currency = 'USD'
+
+    for r in reservations:
+        # Try to get revenue from different fields
+        revenue = 0.0
+        if r.get('payoutAmount'):
+            revenue = float(r['payoutAmount'])
+        elif r.get('totalPrice'):
+            revenue = float(r['totalPrice'])
+        elif isinstance(r.get('money'), dict):
+            revenue = float(r['money'].get('fareAccommodation', 0))
+
+        total_revenue += revenue
+
+        # Get currency
+        if r.get('currency'):
+            currency = r['currency']
+
+    if args.json:
+        # Build comprehensive JSON output
+        output = {
+            'owner': {
+                'id': owner_id,
+                'name': owner_name
+            },
+            'date_range': {
+                'from': args.from_date,
+                'to': args.to_date
+            },
+            'summary': {
+                'total_reservations': len(reservations),
+                'total_revenue': round(total_revenue, 2),
+                'currency': currency
+            },
+            'reservations': []
+        }
+
+        for r in reservations:
+            rev = 0.0
+            if r.get('payoutAmount'):
+                rev = float(r['payoutAmount'])
+            elif r.get('totalPrice'):
+                rev = float(r['totalPrice'])
+
+            res_data = {
+                'confirmation_code': r.get('confirmationCode'),
+                'property': listings_map.get(r.get('listingId'), r.get('listingId', 'Unknown')),
+                'guest': r.get('guestName', 'N/A'),
+                'check_in': r.get('checkIn'),
+                'check_out': r.get('checkOut'),
+                'revenue': round(rev, 2),
+                'currency': r.get('currency', currency),
+                'status': r.get('status')
+            }
+            output['reservations'].append(res_data)
+
+        print_json(output)
+        return
+
+    # Print table output
+    print(f"\n{bold(f'Reservations for {owner_name}')}")
+    if date_filter_desc:
+        print(dim(f"Date range:{date_filter_desc}"))
+    print()
+
+    headers = ['Confirmation Code', 'Property', 'Guest', 'Check-in', 'Check-out', 'Revenue']
+    rows = []
+
+    for r in reservations:
+        # Get revenue
+        rev = 0.0
+        if r.get('payoutAmount'):
+            rev = float(r['payoutAmount'])
+        elif r.get('totalPrice'):
+            rev = float(r['totalPrice'])
+
+        # Get property name
+        listing_id = r.get('listingId', '')
+        property_name = listings_map.get(listing_id, listing_id[:20])
+
+        # Format dates
+        check_in = r.get('checkIn', '')
+        check_out = r.get('checkOut', '')
+        if check_in:
+            check_in = check_in[:10]  # Just the date part
+        if check_out:
+            check_out = check_out[:10]
+
+        rows.append([
+            r.get('confirmationCode', 'N/A'),
+            property_name[:25],
+            r.get('guestName', 'N/A')[:20],
+            check_in or 'N/A',
+            check_out or 'N/A',
+            format_money(rev, r.get('currency', currency))
+        ])
+
+    print_table(headers, rows)
+
+    # Print summary
+    print()
+    print(f"{bold('Summary:')}")
+    print(f"  Total Reservations: {len(reservations)}")
+    print(f"  Total Revenue: {green(format_money(total_revenue, currency))}")

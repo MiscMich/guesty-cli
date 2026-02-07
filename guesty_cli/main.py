@@ -54,16 +54,21 @@ def main():
         ('status', 'Dashboard overview'),
         ('listings', 'Property management'),
         ('reservations', 'Reservation management'),
+        ('views', 'Guesty built-in reports and views'),
         ('guests', 'Guest profiles'),
         ('owners', 'Owner management'),
-        ('calendar', 'Calendar operations'),
+        ('integrations', 'OTA integrations'),
+        ('users', 'Team user management'),
+        ('calendar_sync', 'Calendar sync operations'),
         ('tasks', 'Task management'),
         ('reviews', 'Review management'),
         ('webhooks', 'Webhook management'),
         ('financials', 'Financial analytics'),
+        ('occupancy', 'Occupancy analytics and metrics'),
         ('search', 'Full-text search'),
         ('sync', 'Data synchronization'),
         ('export', 'Data export'),
+        ('statements', 'Owner statement generation'),
     ]
     
     registered_count = 0

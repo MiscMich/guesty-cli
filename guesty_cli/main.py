@@ -5,7 +5,38 @@ import sys
 import argparse
 from guesty_cli import __version__
 
+# Known subcommands for shortcut handling
+LISTING_ACTIONS = {'get', 'create', 'update', 'delete'}
+RESERVATION_ACTIONS = {'get', 'create', 'update', 'cancel', 'approve', 'decline'}
+
+def handle_shortcuts(argv):
+    """Convert shortcut commands to full subcommand form.
+    
+    guesty listing "Name" -> guesty listing get "Name"
+    guesty reservation "CODE" -> guesty reservation get "CODE"
+    """
+    # Find 'listing' or 'reservation' command position
+    for i, arg in enumerate(argv):
+        if arg == 'listing' and i + 1 < len(argv):
+            next_arg = argv[i + 1]
+            # If next arg is not a flag and not a known action, it's a listing name
+            if not next_arg.startswith('--') and next_arg not in LISTING_ACTIONS:
+                # Insert 'get' before the listing name
+                argv.insert(i + 1, 'get')
+                break
+        elif arg == 'reservation' and i + 1 < len(argv):
+            next_arg = argv[i + 1]
+            # If next arg is not a flag and not a known action, it's a reservation code
+            if not next_arg.startswith('--') and next_arg not in RESERVATION_ACTIONS:
+                # Insert 'get' before the reservation code
+                argv.insert(i + 1, 'get')
+                break
+    return argv
+
 def main():
+    # Process shortcuts before argparse
+    sys.argv = handle_shortcuts(sys.argv)
+    
     parser = argparse.ArgumentParser(
         prog='guesty',
         description='Universal CLI for Guesty PMS — manage your vacation rental operations from the terminal.',

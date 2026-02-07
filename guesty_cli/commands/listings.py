@@ -44,88 +44,90 @@ def register(subparsers):
     list_parser.add_argument('--csv', action='store_true', help='Output as CSV')
     list_parser.add_argument('--live', action='store_true', help='Query live API')
 
-    # guesty listing (with subcommands)
+    # guesty listing - single parser that handles both:
+    # - guesty listing <name> (shortcut)
+    # - guesty listing get <name>, guesty listing create ..., etc.
     listing_parser = subparsers.add_parser(
         'listing',
         help='Manage a specific listing'
     )
-    
-    # Add shortcut argument BEFORE subparsers to catch bare listing names
-    listing_parser.add_argument('listing_name', nargs='?', default=None, 
-                                 help='Listing name (shortcut for "get")')
+
     listing_parser.add_argument('--json', action='store_true', help='Output as JSON')
     listing_parser.add_argument('--live', action='store_true', help='Query live API')
-    
-    listing_subparsers = listing_parser.add_subparsers(dest='listing_action')
 
-    # guesty listing get <id_or_nickname>
-    get_parser = listing_subparsers.add_parser('get', help='Show details for a specific listing')
-    get_parser.add_argument('id_or_nickname', help='Listing ID or nickname')
-    get_parser.set_defaults(func=run_get)
+    # Positional args: action (optional, defaults to 'get') and target (listing name or extra arg)
+    listing_parser.add_argument('arg1', nargs='?', default=None,
+                                 help='Action (get/create/update/delete) OR listing name for shortcut')
+    listing_parser.add_argument('arg2', nargs='?', default=None,
+                                 help='Listing name (when action specified)')
 
-    # guesty listing create
-    create_parser = listing_subparsers.add_parser('create', help='Create a new listing')
-    create_parser.add_argument('--title', type=str, required=True, help='Listing title (required)')
-    create_parser.add_argument('--nickname', type=str, help='Listing nickname')
-    create_parser.add_argument('--address', type=str, help='Street address')
-    create_parser.add_argument('--city', type=str, help='City')
-    create_parser.add_argument('--state', type=str, help='State/Province')
-    create_parser.add_argument('--country', type=str, default='US', help='Country code (default: US)')
-    create_parser.add_argument('--bedrooms', type=int, help='Number of bedrooms')
-    create_parser.add_argument('--bathrooms', type=float, help='Number of bathrooms')
-    create_parser.add_argument('--max-guests', type=int, help='Maximum number of guests')
-    create_parser.add_argument('--type', type=str, help='Property type (e.g., Villa, Apartment)')
-    create_parser.add_argument('--dry-run', action='store_true', help='Show what would be sent without sending')
-    create_parser.add_argument('--live', action='store_true', help='Create via live API')
-    create_parser.set_defaults(func=run_create)
+    # Create options (used when action=create)
+    listing_parser.add_argument('--title', type=str, help='Listing title (required for create)')
+    listing_parser.add_argument('--nickname', type=str, help='Listing nickname')
+    listing_parser.add_argument('--address', type=str, help='Street address')
+    listing_parser.add_argument('--city', type=str, help='City')
+    listing_parser.add_argument('--state', type=str, help='State/Province')
+    listing_parser.add_argument('--country', type=str, default='US', help='Country code (default: US)')
+    listing_parser.add_argument('--bedrooms', type=int, help='Number of bedrooms')
+    listing_parser.add_argument('--bathrooms', type=float, help='Number of bathrooms')
+    listing_parser.add_argument('--max-guests', type=int, help='Maximum number of guests')
+    listing_parser.add_argument('--type', type=str, help='Property type (e.g., Villa, Apartment)')
+    listing_parser.add_argument('--dry-run', action='store_true', help='Show what would be sent without sending')
+    listing_parser.add_argument('--confirm', action='store_true', help='Confirm deletion (required)')
 
-    # guesty listing update <id_or_nickname>
-    update_parser = listing_subparsers.add_parser('update', help='Update an existing listing')
-    update_parser.add_argument('id_or_nickname', help='Listing ID or nickname')
-    update_parser.add_argument('--title', type=str, help='Listing title')
-    update_parser.add_argument('--nickname', type=str, help='Listing nickname')
-    update_parser.add_argument('--address', type=str, help='Street address')
-    update_parser.add_argument('--city', type=str, help='City')
-    update_parser.add_argument('--state', type=str, help='State/Province')
-    update_parser.add_argument('--country', type=str, help='Country code')
-    update_parser.add_argument('--bedrooms', type=int, help='Number of bedrooms')
-    update_parser.add_argument('--bathrooms', type=float, help='Number of bathrooms')
-    update_parser.add_argument('--max-guests', type=int, help='Maximum number of guests')
-    update_parser.add_argument('--type', type=str, help='Property type')
-    update_parser.add_argument('--dry-run', action='store_true', help='Show what would be sent without sending')
-    update_parser.add_argument('--live', action='store_true', help='Update via live API')
-    update_parser.set_defaults(func=run_update)
-
-    # guesty listing delete <id_or_nickname>
-    delete_parser = listing_subparsers.add_parser('delete', help='Delete a listing')
-    delete_parser.add_argument('id_or_nickname', help='Listing ID or nickname')
-    delete_parser.add_argument('--confirm', action='store_true', help='Confirm deletion (required)')
-    delete_parser.add_argument('--live', action='store_true', help='Delete via live API')
-    delete_parser.set_defaults(func=run_delete)
-    
-    # Set the default handler
-    listing_parser.set_defaults(func=run_listing_shortcut)
+    # Set the router handler
+    listing_parser.set_defaults(func=run_listing_router)
 
 
-def run_listing_shortcut(args):
-    """Handle shortcut: guesty listing <name> -> guesty listing get <name>."""
-    # If listing_action is set, it means a subcommand was used
-    if getattr(args, 'listing_action', None):
-        # This shouldn't happen as subcommands have their own func
-        return
-    
-    # Check if listing_name was provided (not a known action)
-    name = getattr(args, 'listing_name', None)
-    if name and name not in KNOWN_LISTING_ACTIONS:
-        # Treat as listing name for get command
-        args.id_or_nickname = name
-        run_get(args)
+def run_listing_router(args):
+    """Route listing commands based on first positional argument.
+
+    Handles:
+    - guesty listing get <name>          -> run_get
+    - guesty listing create ...          -> run_create
+    - guesty listing update <name> ...   -> run_update
+    - guesty listing delete <name> ...   -> run_delete
+    - guesty listing <name>              -> run_get (shortcut)
+    """
+    arg1 = getattr(args, 'arg1', None)
+    arg2 = getattr(args, 'arg2', None)
+
+    # Determine the action based on arg1
+    if arg1 in KNOWN_LISTING_ACTIONS:
+        action = arg1
+        listing_name = arg2
     else:
-        print(yellow("Usage: guesty listing <nickname>  (shortcut for 'guesty listing get <nickname>')"))
-        print(yellow("       guesty listing get <nickname>"))
-        print(yellow("       guesty listing create --title ..."))
-        print(yellow("       guesty listing update <nickname> ..."))
-        print(yellow("       guesty listing delete <nickname>"))
+        # arg1 is a listing name, default to 'get'
+        action = 'get'
+        listing_name = arg1
+
+    # Route to appropriate handler
+    if action == 'get':
+        if not listing_name:
+            print(yellow("Usage: guesty listing <nickname>  (shortcut for 'guesty listing get <nickname>')"))
+            print(yellow("       guesty listing get <nickname>"))
+            print(yellow("       guesty listing create --title ..."))
+            print(yellow("       guesty listing update <nickname> ..."))
+            print(yellow("       guesty listing delete <nickname>"))
+            return
+        args.id_or_nickname = listing_name
+        run_get(args)
+    elif action == 'create':
+        run_create(args)
+    elif action == 'update':
+        if not listing_name:
+            print(red("Error: update requires a listing name"))
+            print(yellow("Usage: guesty listing update <nickname> [options]"))
+            return
+        args.id_or_nickname = listing_name
+        run_update(args)
+    elif action == 'delete':
+        if not listing_name:
+            print(red("Error: delete requires a listing name"))
+            print(yellow("Usage: guesty listing delete <nickname>"))
+            return
+        args.id_or_nickname = listing_name
+        run_delete(args)
 
 
 def run(args):
@@ -416,10 +418,10 @@ def run_create(args):
         return
 
     # Build the data payload
-    data = {
-        'title': args.title,
-    }
+    data = {}
 
+    if args.title:
+        data['title'] = args.title
     if args.nickname:
         data['nickname'] = args.nickname
     if args.address:

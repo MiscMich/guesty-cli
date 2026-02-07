@@ -276,6 +276,9 @@ def register(subparsers):
     decline_parser.add_argument('--reason', type=str, help='Decline reason')
     decline_parser.add_argument('--live', action='store_true', help='Decline via live API')
     decline_parser.set_defaults(func=run_decline)
+    
+    # Set default handler for shortcut
+    reservation_parser.set_defaults(func=run_reservation_shortcut)
 
 
 def run_reservation_shortcut(args):
@@ -285,11 +288,11 @@ def run_reservation_shortcut(args):
         # This shouldn't happen as subcommands have their own func
         return
     
-    # Check if shortcut_code was provided
-    shortcut = getattr(args, 'shortcut_code', None)
-    if shortcut and shortcut not in KNOWN_RESERVATION_ACTIONS:
+    # Check if reservation_code was provided (not a known action)
+    code = getattr(args, 'reservation_code', None)
+    if code and code not in KNOWN_RESERVATION_ACTIONS:
         # Treat as reservation code for get command
-        args.id_or_code = shortcut
+        args.id_or_code = code
         run_get(args)
     else:
         print(yellow("Usage: guesty reservation <code>  (shortcut for 'guesty reservation get <code>')"))

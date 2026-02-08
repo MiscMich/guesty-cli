@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS listings (
     base_price REAL,
     currency TEXT,
     picture TEXT,
+    active INTEGER DEFAULT 0,
     created_at TEXT,
     updated_at TEXT,
     raw_data TEXT
@@ -345,8 +346,8 @@ def upsert_listings(conn: sqlite3.Connection, listings: list) -> int:
                 address, city, state, country, zipcode,
                 bedrooms, bathrooms, max_guests,
                 base_price, currency, picture,
-                created_at, updated_at, raw_data
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                active, created_at, updated_at, raw_data
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             listing_id,
             listing.get("title"),
@@ -364,6 +365,7 @@ def upsert_listings(conn: sqlite3.Connection, listings: list) -> int:
             _extract_nested(listing, "prices.basePrice"),
             listing.get("currency"),
             listing.get("picture", {}).get("regular") if isinstance(listing.get("picture"), dict) else None,
+            1 if listing.get("active") else 0,
             listing.get("createdAt"),
             listing.get("updatedAt"),
             json.dumps(listing),

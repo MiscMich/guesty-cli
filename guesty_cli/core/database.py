@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     guest_id TEXT,
     rating REAL,
     comment TEXT,
+    reviewer_name TEXT,
     created_at TEXT,
     updated_at TEXT,
     raw_data TEXT
@@ -528,6 +529,11 @@ def upsert_owners(conn: sqlite3.Connection, owners: list) -> int:
 def upsert_reviews(conn: sqlite3.Connection, reviews: list) -> int:
     """Upsert reviews into database.
     
+    Guesty API returns review data in rawReview nested object:
+    - rawReview.overall_rating -> rating
+    - rawReview.public_review -> comment
+    - rawReview.reviewer.first_name -> reviewer_name
+    
     Args:
         conn: Database connection.
         reviews: List of review dictionaries.
@@ -545,19 +551,31 @@ def upsert_reviews(conn: sqlite3.Connection, reviews: list) -> int:
         if not review_id:
             continue
         
+        # Extract nested review data from rawReview
+        raw_review = review.get("rawReview", {})
+        rating = raw_review.get("overall_rating") if isinstance(raw_review, dict) else None
+        comment = raw_review.get("public_review") if isinstance(raw_review, dict) else None
+        
+        # Get reviewer name from reviewer object
+        reviewer = raw_review.get("reviewer", {}) if isinstance(raw_review, dict) else {}
+        reviewer_name = None
+        if isinstance(reviewer, dict):
+            reviewer_name = f"{reviewer.get('first_name', '')} {reviewer.get('last_name', '')}".strip()
+        
         cursor.execute("""
             INSERT OR REPLACE INTO reviews (
                 id, reservation_id, listing_id, guest_id,
-                rating, comment,
+                rating, comment, reviewer_name,
                 created_at, updated_at, raw_data
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             review_id,
             review.get("reservationId"),
             review.get("listingId"),
             review.get("guestId"),
-            review.get("rating"),
-            review.get("comment"),
+            rating,
+            comment,
+            reviewer_name,
             review.get("createdAt"),
             review.get("updatedAt"),
             json.dumps(review),

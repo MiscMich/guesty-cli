@@ -40,7 +40,7 @@ def register(subparsers):
 
     # Positional: action + optional ID
     list_parser.add_argument('action', nargs='?', default='list',
-                             help='Action: list (default), show, update, descriptions')
+                             help='Action: list (default), show, update, descriptions, amenities')
     list_parser.add_argument('listing_id', nargs='?', default=None,
                              help='Listing ID or nickname (for show/update)')
 
@@ -127,9 +127,11 @@ def run_listings_router(args):
         run_update_descriptions(args)
     elif action == 'descriptions':
         run_descriptions(args)
+    elif action == 'amenities':
+        run_amenities_overview(args)
     else:
         print(red(f"Unknown action: {action}"))
-        print(yellow("Available: list, show, update, descriptions"))
+        print(yellow("Available: list, show, update, descriptions, amenities"))
 
 
 def run_listing_router(args):
@@ -537,6 +539,40 @@ def _truncate(text, max_len=80):
     if len(text) > max_len:
         return text[:max_len] + '...'
     return text
+
+
+# ─── listings amenities overview ──────────────────────────────────────────────
+
+def run_amenities_overview(args):
+    """Show all amenities across all listings with counts."""
+    db = get_db()
+    rows = db.execute("SELECT nickname, raw_data FROM listings WHERE raw_data IS NOT NULL ORDER BY nickname").fetchall()
+
+    amenity_counts = {}  # amenity -> list of nicknames
+    for row in rows:
+        raw = json.loads(row['raw_data'])
+        for a in raw.get('amenities', []):
+            amenity_counts.setdefault(a, []).append(row['nickname'])
+
+    total_listings = len(rows)
+
+    if getattr(args, 'json', False):
+        print_json({a: {'count': len(listings), 'listings': listings} for a, listings in sorted(amenity_counts.items())})
+        return
+
+    print(bold(f"Amenities Across All Listings ({len(amenity_counts)} unique, {total_listings} properties)\n"))
+
+    # Sort by count descending, then name
+    sorted_amenities = sorted(amenity_counts.items(), key=lambda x: (-len(x[1]), x[0]))
+
+    for amenity, listings in sorted_amenities:
+        count = len(listings)
+        bar = '█' * count + '░' * (total_listings - count)
+        pct = int(count / total_listings * 100)
+        print(f"  {amenity:<45s} {bar} {count}/{total_listings} ({pct}%)")
+
+    print(f"\n  {cyan('Tip:')} Use 'guesty listings show <name> --section amenities' to see a property's amenities")
+    print(f"  {cyan('Tip:')} Use 'guesty listings update <name> --add-amenity \"X\" --confirm' to add amenities")
 
 
 # ─── listings descriptions ───────────────────────────────────────────────────

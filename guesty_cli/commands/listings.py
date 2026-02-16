@@ -278,7 +278,11 @@ def run_show(args):
         addr_str = address or 'N/A'
 
     pub_desc = raw.get('publicDescription', {}) or {}
-    priv_desc = raw.get('privateDescription', '') or ''
+    priv_desc_raw = raw.get('privateDescription', '') or ''
+    if isinstance(priv_desc_raw, dict):
+        priv_desc = '\n'.join(f"  {k}: {v}" for k, v in priv_desc_raw.items() if v)
+    else:
+        priv_desc = priv_desc_raw
 
     card_data = {
         'ID': raw.get('_id') or listing_id,

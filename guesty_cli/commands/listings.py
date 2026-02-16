@@ -31,22 +31,43 @@ KNOWN_LISTING_ACTIONS = {'get', 'create', 'update', 'delete'}
 
 def register(subparsers):
     """Register listings commands with the argument parser."""
-    # guesty listings (list)
+    # guesty listings [action] ...
     list_parser = subparsers.add_parser(
         'listings',
-        help='List all listings'
+        help='List, show, update listings and manage descriptions'
     )
-    list_parser.set_defaults(func=run_list)
+    list_parser.set_defaults(func=run_listings_router)
+
+    # Positional: action + optional ID
+    list_parser.add_argument('action', nargs='?', default='list',
+                             help='Action: list (default), show, update, descriptions')
+    list_parser.add_argument('listing_id', nargs='?', default=None,
+                             help='Listing ID or nickname (for show/update)')
+
+    # List filters
     list_parser.add_argument('--active', action='store_true', help='Show only active listings')
     list_parser.add_argument('--city', type=str, help='Filter by city')
     list_parser.add_argument('--status', type=str, help='Filter by status')
+
+    # Output format
     list_parser.add_argument('--json', action='store_true', help='Output as JSON')
     list_parser.add_argument('--csv', action='store_true', help='Output as CSV')
-    list_parser.add_argument('--live', action='store_true', help='Query live API')
+    list_parser.add_argument('--live', action='store_true', help='Query live API instead of local DB')
 
-    # guesty listing - single parser that handles both:
-    # - guesty listing <name> (shortcut)
-    # - guesty listing get <name>, guesty listing create ..., etc.
+    # Update fields
+    list_parser.add_argument('--title', type=str, help='New listing title')
+    list_parser.add_argument('--description', type=str, help='Public description summary')
+    list_parser.add_argument('--space', type=str, help='Space description (publicDescription.space)')
+    list_parser.add_argument('--access', type=str, help='Access info (publicDescription.access)')
+    list_parser.add_argument('--neighborhood', type=str, help='Neighborhood info (publicDescription.neighborhood)')
+    list_parser.add_argument('--transit', type=str, help='Transit info (publicDescription.transit)')
+    list_parser.add_argument('--notes', type=str, help='Host notes (publicDescription.notes)')
+    list_parser.add_argument('--interaction', type=str, help='Interaction text (publicDescription.interactionWithGuests)')
+    list_parser.add_argument('--house-rules', type=str, dest='house_rules', help='House rules (publicDescription.houseRules)')
+    list_parser.add_argument('--from-file', type=str, dest='from_file', help='Read description from file')
+    list_parser.add_argument('--confirm', action='store_true', help='Actually send update (dry-run by default)')
+
+    # guesty listing - single parser for shortcuts
     listing_parser = subparsers.add_parser(
         'listing',
         help='Manage a specific listing'
@@ -55,13 +76,12 @@ def register(subparsers):
     listing_parser.add_argument('--json', action='store_true', help='Output as JSON')
     listing_parser.add_argument('--live', action='store_true', help='Query live API')
 
-    # Positional args: action (optional, defaults to 'get') and target (listing name or extra arg)
     listing_parser.add_argument('arg1', nargs='?', default=None,
                                  help='Action (get/create/update/delete) OR listing name for shortcut')
     listing_parser.add_argument('arg2', nargs='?', default=None,
                                  help='Listing name (when action specified)')
 
-    # Create options (used when action=create)
+    # Create/update options
     listing_parser.add_argument('--title', type=str, help='Listing title (required for create)')
     listing_parser.add_argument('--nickname', type=str, help='Listing nickname')
     listing_parser.add_argument('--address', type=str, help='Street address')
@@ -75,33 +95,46 @@ def register(subparsers):
     listing_parser.add_argument('--dry-run', action='store_true', help='Show what would be sent without sending')
     listing_parser.add_argument('--confirm', action='store_true', help='Confirm deletion (required)')
 
-    # Set the router handler
     listing_parser.set_defaults(func=run_listing_router)
 
 
-def run_listing_router(args):
-    """Route listing commands based on first positional argument.
+def run_listings_router(args):
+    """Route listings commands based on action."""
+    action = args.action
 
-    Handles:
-    - guesty listing get <name>          -> run_get
-    - guesty listing create ...          -> run_create
-    - guesty listing update <name> ...   -> run_update
-    - guesty listing delete <name> ...   -> run_delete
-    - guesty listing <name>              -> run_get (shortcut)
-    """
+    if action == 'list':
+        run_list(args)
+    elif action == 'show':
+        if not args.listing_id:
+            print(red("Error: listings show requires a listing ID or nickname"))
+            print(yellow("Usage: guesty listings show <id-or-nickname> [--live] [--json]"))
+            return
+        run_show(args)
+    elif action == 'update':
+        if not args.listing_id:
+            print(red("Error: listings update requires a listing ID or nickname"))
+            print(yellow("Usage: guesty listings update <id-or-nickname> --title 'New Title' [--confirm]"))
+            return
+        run_update_descriptions(args)
+    elif action == 'descriptions':
+        run_descriptions(args)
+    else:
+        print(red(f"Unknown action: {action}"))
+        print(yellow("Available: list, show, update, descriptions"))
+
+
+def run_listing_router(args):
+    """Route listing commands based on first positional argument."""
     arg1 = getattr(args, 'arg1', None)
     arg2 = getattr(args, 'arg2', None)
 
-    # Determine the action based on arg1
     if arg1 in KNOWN_LISTING_ACTIONS:
         action = arg1
         listing_name = arg2
     else:
-        # arg1 is a listing name, default to 'get'
         action = 'get'
         listing_name = arg1
 
-    # Route to appropriate handler
     if action == 'get':
         if not listing_name:
             print(yellow("Usage: guesty listing <nickname>  (shortcut for 'guesty listing get <nickname>')"))
@@ -120,7 +153,7 @@ def run_listing_router(args):
             print(yellow("Usage: guesty listing update <nickname> [options]"))
             return
         args.id_or_nickname = listing_name
-        run_update(args)
+        run_update_legacy(args)
     elif action == 'delete':
         if not listing_name:
             print(red("Error: delete requires a listing name"))
@@ -130,15 +163,12 @@ def run_listing_router(args):
         run_delete(args)
 
 
-def run(args):
-    """Route to appropriate subcommand handler."""
-    pass  # Handled by run_listing_shortcut or subparsers
-
+# ─── listings list ───────────────────────────────────────────────────────────
 
 def run_list(args):
     """List all listings."""
     config = load_config()
-    
+
     if args.live:
         if not config:
             print(red("Error: Not configured. Run 'guesty init' first."))
@@ -153,7 +183,7 @@ def run_list(args):
         db = get_db()
         query = "SELECT * FROM listings WHERE 1=1"
         params = []
-        
+
         if args.active:
             query += " AND active = 1"
         if args.city:
@@ -162,21 +192,20 @@ def run_list(args):
         if args.status:
             query += " AND status = ?"
             params.append(args.status)
-        
+
         query += " ORDER BY nickname"
-        
+
         try:
             cursor = db.execute(query, params)
             listings = [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             print(red(f"Error querying database: {e}"))
             return
-    
+
     if not listings:
         print(yellow("No listings found"))
         return
-    
-    # Format for output
+
     headers = ['Nickname', 'Title', 'City', 'Beds/Baths', 'Max', 'Status']
     rows = []
     for l in listings:
@@ -190,7 +219,7 @@ def run_list(args):
             l.get('max_guests') or l.get('maxGuests', 'N/A'),
             green('Active') if l.get('active') else red('Inactive')
         ])
-    
+
     if args.json:
         print_json(listings)
     elif args.csv:
@@ -200,21 +229,310 @@ def run_list(args):
         print_table(headers, rows)
 
 
+# ─── listings show ───────────────────────────────────────────────────────────
+
+def _get_raw_data(db, listing_id):
+    """Get parsed raw_data JSON for a listing."""
+    row = db.execute("SELECT raw_data FROM listings WHERE id = ?", (listing_id,)).fetchone()
+    if row and row['raw_data']:
+        return json.loads(row['raw_data'])
+    return {}
+
+
+def run_show(args):
+    """Show full details for a single listing."""
+    db = get_db()
+    listing_id, nickname = _resolve_listing(db, args.listing_id)
+
+    if not listing_id:
+        print(red(f"Listing '{args.listing_id}' not found"))
+        return
+
+    if args.live:
+        config = load_config()
+        if not config:
+            print(red("Error: Not configured. Run 'guesty init' first."))
+            return
+        client = GuestyClient(config)
+        try:
+            raw = client.api_get(f'/v1/listings/{listing_id}')
+        except Exception as e:
+            print(red(f"Error fetching listing: {e}"))
+            return
+    else:
+        raw = _get_raw_data(db, listing_id)
+        if not raw:
+            # Fall back to DB columns
+            row = db.execute("SELECT * FROM listings WHERE id = ?", (listing_id,)).fetchone()
+            raw = dict(row) if row else {}
+
+    if getattr(args, 'json', False):
+        print_json(raw)
+        return
+
+    # Basic info
+    address = raw.get('address', {})
+    if isinstance(address, dict):
+        addr_str = address.get('full', 'N/A')
+    else:
+        addr_str = address or 'N/A'
+
+    pub_desc = raw.get('publicDescription', {}) or {}
+    priv_desc = raw.get('privateDescription', '') or ''
+
+    card_data = {
+        'ID': raw.get('_id') or listing_id,
+        'Nickname': raw.get('nickname') or nickname,
+        'Title': raw.get('title', 'N/A'),
+        'Status': green('Active') if raw.get('active') else red('Inactive'),
+        'Property Type': raw.get('propertyType', 'N/A'),
+        'Address': addr_str,
+        'Bedrooms': raw.get('bedrooms', 'N/A'),
+        'Bathrooms': raw.get('bathrooms', 'N/A'),
+        'Max Guests': raw.get('accommodates', 'N/A'),
+        'Check-in': raw.get('defaultCheckInTime', 'N/A'),
+        'Check-out': raw.get('defaultCheckOutTime', 'N/A'),
+    }
+
+    print_card(f"Listing: {raw.get('nickname') or nickname}", card_data)
+
+    # Amenities
+    amenities = raw.get('amenities', [])
+    if amenities:
+        print(f"\n{bold('Amenities')}")
+        # Show in columns
+        for i in range(0, len(amenities), 3):
+            row_items = amenities[i:i+3]
+            print("  " + "  |  ".join(row_items))
+
+    # Public Description
+    if pub_desc:
+        print(f"\n{bold('Public Description')}")
+        desc_fields = [
+            ('Summary', 'summary'),
+            ('Space', 'space'),
+            ('Access', 'access'),
+            ('Neighborhood', 'neighborhood'),
+            ('Transit', 'transit'),
+            ('Notes', 'notes'),
+            ('Interaction with Guests', 'interactionWithGuests'),
+            ('House Rules', 'houseRules'),
+        ]
+        for label, key in desc_fields:
+            val = pub_desc.get(key)
+            if val:
+                print(f"\n  {cyan(label)}:")
+                # Word-wrap long text at ~80 chars
+                for line in _wrap_text(val, 76):
+                    print(f"    {line}")
+
+    # Private Description
+    if priv_desc:
+        print(f"\n{bold('Private Description')}")
+        for line in _wrap_text(priv_desc, 76):
+            print(f"    {line}")
+
+    # Terms
+    terms = raw.get('terms', {})
+    if terms:
+        print(f"\n{bold('Terms')}")
+        if terms.get('minNights'):
+            print(f"  Min Nights: {terms['minNights']}")
+        if terms.get('maxNights'):
+            print(f"  Max Nights: {terms['maxNights']}")
+
+
+def _wrap_text(text, width=76):
+    """Simple word wrap."""
+    if not text:
+        return []
+    lines = []
+    for paragraph in text.split('\n'):
+        if not paragraph.strip():
+            lines.append('')
+            continue
+        words = paragraph.split()
+        current = ''
+        for word in words:
+            if current and len(current) + len(word) + 1 > width:
+                lines.append(current)
+                current = word
+            else:
+                current = f"{current} {word}" if current else word
+        if current:
+            lines.append(current)
+    return lines
+
+
+# ─── listings update ─────────────────────────────────────────────────────────
+
+def run_update_descriptions(args):
+    """Update listing fields including public description sub-fields."""
+    db = get_db()
+    listing_id, nickname = _resolve_listing(db, args.listing_id)
+
+    if not listing_id:
+        print(red(f"Listing '{args.listing_id}' not found"))
+        return
+
+    # Get current raw data for diff
+    raw = _get_raw_data(db, listing_id)
+    current_pub = raw.get('publicDescription', {}) or {}
+
+    # If --from-file, read description from file
+    file_desc = None
+    if args.from_file:
+        try:
+            with open(args.from_file, 'r') as f:
+                file_desc = f.read().strip()
+        except Exception as e:
+            print(red(f"Error reading file: {e}"))
+            return
+
+    # Build update payload
+    payload = {}
+    pub_updates = {}
+    changes = []  # (field_path, old_val, new_val)
+
+    # Title (top-level field)
+    if args.title is not None:
+        old = raw.get('title', '')
+        payload['title'] = args.title
+        changes.append(('title', old, args.title))
+
+    # Description fields -> publicDescription sub-object
+    desc_mapping = {
+        'description': 'summary',
+        'space': 'space',
+        'access': 'access',
+        'neighborhood': 'neighborhood',
+        'transit': 'transit',
+        'notes': 'notes',
+        'interaction': 'interactionWithGuests',
+        'house_rules': 'houseRules',
+    }
+
+    for arg_name, api_key in desc_mapping.items():
+        val = getattr(args, arg_name, None)
+        # --from-file overrides --description
+        if arg_name == 'description' and file_desc is not None:
+            val = file_desc
+        if val is not None:
+            old = current_pub.get(api_key, '')
+            pub_updates[api_key] = val
+            changes.append((f'publicDescription.{api_key}', old, val))
+
+    if pub_updates:
+        payload['publicDescription'] = pub_updates
+
+    if not changes:
+        print(yellow("No changes specified. Use --title, --description, --space, etc."))
+        print(yellow("Run 'guesty listings update --help' for all options."))
+        return
+
+    # Print diff
+    print(bold(f"Update: {nickname or listing_id}"))
+    print()
+    for field, old_val, new_val in changes:
+        old_preview = _truncate(old_val, 80) if old_val else '(empty)'
+        new_preview = _truncate(new_val, 80)
+        print(f"  {cyan(field)}:")
+        print(f"    {red('- ' + old_preview)}")
+        print(f"    {green('+ ' + new_preview)}")
+        print()
+
+    if not args.confirm:
+        print(yellow("[DRY RUN] Add --confirm to send this update to the API."))
+        return
+
+    # Send update
+    config = load_config()
+    if not config:
+        print(red("Error: Not configured. Run 'guesty init' first."))
+        return
+
+    client = GuestyClient(config)
+    try:
+        result = client.api_put(f'/v1/listings/{listing_id}', payload)
+        print(green(f"✓ Listing '{nickname}' updated successfully!"))
+    except Exception as e:
+        print(red(f"Error updating listing: {e}"))
+
+
+def _truncate(text, max_len=80):
+    """Truncate text for display."""
+    if not text:
+        return ''
+    text = str(text).replace('\n', ' ')
+    if len(text) > max_len:
+        return text[:max_len] + '...'
+    return text
+
+
+# ─── listings descriptions ───────────────────────────────────────────────────
+
+def run_descriptions(args):
+    """Show all listings with their description summaries."""
+    db = get_db()
+    cursor = db.execute("SELECT id, nickname, title, raw_data FROM listings ORDER BY nickname")
+    rows = cursor.fetchall()
+
+    if not rows:
+        print(yellow("No listings found"))
+        return
+
+    if getattr(args, 'json', False):
+        results = []
+        for row in rows:
+            raw = json.loads(row['raw_data']) if row['raw_data'] else {}
+            pub = raw.get('publicDescription', {}) or {}
+            results.append({
+                'id': row['id'],
+                'nickname': row['nickname'],
+                'title': row['title'],
+                'summary': pub.get('summary', ''),
+            })
+        print_json(results)
+        return
+
+    print(f"\n{bold('Listing Descriptions')}")
+    print()
+
+    for row in rows:
+        raw = json.loads(row['raw_data']) if row['raw_data'] else {}
+        pub = raw.get('publicDescription', {}) or {}
+        summary = pub.get('summary', '')
+
+        nick = row['nickname'] or 'N/A'
+        if summary:
+            preview = summary[:100]
+            if len(summary) > 100:
+                preview += '...'
+            status = green('✓')
+        else:
+            preview = '(no description)'
+            status = red('✗')
+
+        print(f"  {status} {bold(nick)}")
+        print(f"    {preview}")
+        print()
+
+
+# ─── listing get (singular, legacy) ─────────────────────────────────────────
+
 def run_get(args):
     """Get details for a specific listing."""
     config = load_config()
     listing_id = args.id_or_nickname
-    
+
     if args.live:
         if not config:
             print(red("Error: Not configured. Run 'guesty init' first."))
             return
         client = GuestyClient(config)
         try:
-            # Try as ID first
             listing = client.api_get(f'/v1/listings/{listing_id}')
         except:
-            # Try to find by nickname
             try:
                 all_listings = client.api_get_all('/v1/listings', {})
                 for l in all_listings:
@@ -228,40 +546,35 @@ def run_get(args):
             except Exception as e:
                 print(red(f"Error: {e}"))
                 return
-        
-        # Get related data from API
+
         upcoming_reservations = []
         recent_reviews = []
         revenue = {'total': 0}
     else:
         db = get_db()
         try:
-            # Try as ID first
             cursor = db.execute("SELECT * FROM listings WHERE id = ?", (listing_id,))
             row = cursor.fetchone()
-            
+
             if not row:
-                # Try by nickname (exact match first, then partial)
                 cursor = db.execute("SELECT * FROM listings WHERE nickname = ?", (listing_id,))
                 row = cursor.fetchone()
-            
+
             if not row:
-                # Try partial nickname match
                 cursor = db.execute("SELECT * FROM listings WHERE nickname LIKE ?", (f'%{listing_id}%',))
                 row = cursor.fetchone()
-            
+
             if not row:
                 print(red(f"Listing '{args.id_or_nickname}' not found"))
                 return
-            
+
             listing = dict(row)
             listing_id = listing.get('id')
-            
-            # Get upcoming reservations with guest names
+
             from datetime import datetime
             today = datetime.now().strftime('%Y-%m-%d')
             cursor = db.execute(
-                """SELECT r.*, 
+                """SELECT r.*,
                           g.fullName as guest_fullName,
                           g.firstName as guest_firstName,
                           g.lastName as guest_lastName
@@ -272,17 +585,15 @@ def run_get(args):
                 (listing_id, today)
             )
             upcoming_reservations = [dict(r) for r in cursor.fetchall()]
-            
-            # Get recent reviews
+
             cursor = db.execute(
                 "SELECT * FROM reviews WHERE listingId = ? ORDER BY createdAt DESC LIMIT 5",
                 (listing_id,)
             )
             recent_reviews = [dict(r) for r in cursor.fetchall()]
-            
-            # Get revenue summary - need to join with reservations since financials uses reservationId
+
             cursor = db.execute(
-                """SELECT SUM(f.amount) as total 
+                """SELECT SUM(f.amount) as total
                    FROM financials f
                    JOIN reservations r ON f.reservationId = r.id
                    WHERE r.listingId = ? AND f.lineType = 'income'""",
@@ -290,11 +601,11 @@ def run_get(args):
             )
             row = cursor.fetchone()
             revenue = {'total': row[0] or 0}
-            
+
         except Exception as e:
             print(red(f"Error: {e}"))
             return
-    
+
     if args.json:
         result = {
             'listing': listing,
@@ -304,8 +615,7 @@ def run_get(args):
         }
         print_json(result)
         return
-    
-    # Print detail card
+
     card_data = {
         'ID': listing.get('id'),
         'Nickname': listing.get('nickname'),
@@ -321,17 +631,15 @@ def run_get(args):
         'Status': green('Active') if listing.get('active') else red('Inactive'),
         'Created': listing.get('createdAt', 'N/A'),
     }
-    
+
     print_card(f"Listing: {listing.get('nickname', 'Unknown')}", card_data)
-    
-    # Upcoming reservations
+
     if upcoming_reservations:
         print()
         print(bold("Upcoming Reservations"))
         headers = ['Code', 'Guest', 'Check-in', 'Check-out', 'Nights']
         rows = []
         for r in upcoming_reservations:
-            # Get guest name from joined columns
             guest_name = r.get('guest_fullName')
             if not guest_name:
                 first = r.get('guest_firstName', '')
@@ -339,8 +647,7 @@ def run_get(args):
                 guest_name = f"{first} {last}".strip()
             if not guest_name:
                 guest_name = r.get('guestName', 'N/A')
-            
-            # Calculate nights if not provided
+
             nights = r.get('nightsCount', r.get('nights'))
             if not nights and r.get('checkIn') and r.get('checkOut'):
                 try:
@@ -350,7 +657,7 @@ def run_get(args):
                     nights = (checkout - checkin).days
                 except:
                     nights = 'N/A'
-            
+
             rows.append([
                 r.get('confirmationCode', 'N/A'),
                 guest_name or 'N/A',
@@ -359,17 +666,14 @@ def run_get(args):
                 nights if nights else 'N/A',
             ])
         print_table(headers, rows)
-    
-    # Recent reviews
+
     if recent_reviews:
         print()
         print(bold("Recent Reviews"))
         headers = ['Reviewer', 'Rating', 'Platform', 'Date']
         rows = []
         for r in recent_reviews:
-            import json
             rating = r.get('rating', 0) or 0
-            # Try to get rating from raw_json if direct column is 0
             if not rating and r.get('raw_json') or r.get('raw_data'):
                 try:
                     raw = json.loads(r['raw_json'])
@@ -379,8 +683,7 @@ def run_get(args):
                 except:
                     pass
             stars = '★' * int(rating) + '☆' * (5 - int(rating))
-            
-            # Try to get reviewer name from raw_json
+
             reviewer_name = r.get('reviewerName')
             if not reviewer_name and r.get('raw_json') or r.get('raw_data'):
                 try:
@@ -394,7 +697,7 @@ def run_get(args):
                             reviewer_name = guest.get('fullName')
                 except:
                     pass
-            
+
             rows.append([
                 reviewer_name or 'Anonymous',
                 f"{stars} ({rating})",
@@ -402,8 +705,7 @@ def run_get(args):
                 r.get('createdAt', 'N/A')[:10] if r.get('createdAt') else 'N/A',
             ])
         print_table(headers, rows)
-    
-    # Revenue summary
+
     print()
     print(bold("Revenue Summary"))
     print(f"  Total Income: {format_money(revenue['total'])}")
@@ -417,7 +719,6 @@ def run_create(args):
         print(red("Error: Not configured. Run 'guesty init' first."))
         return
 
-    # Build the data payload
     data = {}
 
     if args.title:
@@ -463,22 +764,19 @@ def run_create(args):
         print(json.dumps(data, indent=2))
 
 
-def run_update(args):
-    """Update an existing listing."""
+def run_update_legacy(args):
+    """Update an existing listing (legacy singular command)."""
     config = load_config()
     db = get_db()
 
-    # Resolve listing ID
     listing_id, nickname = _resolve_listing(db, args.id_or_nickname)
     if not listing_id:
         print(red(f"Listing '{args.id_or_nickname}' not found in local database"))
         return
 
-    # Get current listing data
     cursor = db.execute("SELECT * FROM listings WHERE id = ?", (listing_id,))
     current = dict(cursor.fetchone())
 
-    # Build update payload with only changed fields
     updates = {}
     if args.title is not None and args.title != current.get('title'):
         updates['title'] = args.title
@@ -542,13 +840,11 @@ def run_delete(args):
     config = load_config()
     db = get_db()
 
-    # Resolve listing ID
     listing_id, nickname = _resolve_listing(db, args.id_or_nickname)
     if not listing_id:
         print(red(f"Listing '{args.id_or_nickname}' not found in local database"))
         return
 
-    # Get listing details for confirmation
     cursor = db.execute("SELECT * FROM listings WHERE id = ?", (listing_id,))
     listing = dict(cursor.fetchone())
 

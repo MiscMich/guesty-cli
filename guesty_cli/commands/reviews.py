@@ -17,7 +17,7 @@ def _get_rating_from_row(row):
     if rating:
         return float(rating)
     
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or r.get('raw_data') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -50,7 +50,7 @@ def _get_reviewer_name_from_row(row, db=None):
         return name
     
     # Try parsing from raw_json
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or r.get('raw_data') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -90,7 +90,7 @@ def _get_platform_from_row(row):
         return platform
     
     # Try parsing from raw_json
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or r.get('raw_data') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -117,7 +117,7 @@ def _get_content_from_row(row):
         return content
     
     # Try parsing from raw_json
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or r.get('raw_data') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -224,7 +224,7 @@ def run_list(args):
     for r in reviews:
         if not r.get('reviewer_name'):
             # Try to get guestId from raw_json
-            raw_json = r.get('raw_json')
+            raw_json = r.get('raw_json') or r.get('raw_data')
             if raw_json:
                 try:
                     raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json

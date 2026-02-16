@@ -187,7 +187,7 @@ def run_list(args):
             l.get('title', 'N/A')[:40],
             l.get('city', 'N/A'),
             f"{beds}/{baths}",
-            l.get('maxGuests', 'N/A'),
+            l.get('max_guests') or l.get('maxGuests', 'N/A'),
             green('Active') if l.get('active') else red('Inactive')
         ])
     
@@ -317,7 +317,7 @@ def run_get(args):
         'Country': listing.get('country', 'N/A'),
         'Bedrooms': listing.get('bedrooms', 'N/A'),
         'Bathrooms': listing.get('bathrooms', 'N/A'),
-        'Max Guests': listing.get('maxGuests', 'N/A'),
+        'Max Guests': listing.get('max_guests') or listing.get('maxGuests', 'N/A'),
         'Status': green('Active') if listing.get('active') else red('Inactive'),
         'Created': listing.get('createdAt', 'N/A'),
     }
@@ -370,7 +370,7 @@ def run_get(args):
             import json
             rating = r.get('rating', 0) or 0
             # Try to get rating from raw_json if direct column is 0
-            if not rating and r.get('raw_json'):
+            if not rating and r.get('raw_json') or r.get('raw_data'):
                 try:
                     raw = json.loads(r['raw_json'])
                     raw_review = raw.get('rawReview', {})
@@ -382,7 +382,7 @@ def run_get(args):
             
             # Try to get reviewer name from raw_json
             reviewer_name = r.get('reviewerName')
-            if not reviewer_name and r.get('raw_json'):
+            if not reviewer_name and r.get('raw_json') or r.get('raw_data'):
                 try:
                     raw = json.loads(r['raw_json'])
                     raw_review = raw.get('rawReview', {})

@@ -67,6 +67,15 @@ def register(subparsers):
     list_parser.add_argument('--from-file', type=str, dest='from_file', help='Read description from file')
     list_parser.add_argument('--confirm', action='store_true', help='Actually send update (dry-run by default)')
 
+    # Show section filter
+    list_parser.add_argument('--section', type=str, 
+                             choices=['summary', 'space', 'access', 'neighborhood', 'transit', 'notes', 'interaction', 'house-rules', 'amenities', 'all'],
+                             help='Show only a specific section (for show action)')
+
+    # Amenities management
+    list_parser.add_argument('--add-amenity', type=str, action='append', dest='add_amenities', help='Add amenity (repeatable)')
+    list_parser.add_argument('--remove-amenity', type=str, action='append', dest='remove_amenities', help='Remove amenity (repeatable)')
+
     # guesty listing - single parser for shortcuts
     listing_parser = subparsers.add_parser(
         'listing',
@@ -270,6 +279,42 @@ def run_show(args):
         print_json(raw)
         return
 
+    pub_desc = raw.get('publicDescription', {}) or {}
+    amenities = raw.get('amenities', [])
+    section = getattr(args, 'section', None)
+
+    # Section-specific output
+    section_map = {
+        'summary': 'summary',
+        'space': 'space',
+        'access': 'access',
+        'neighborhood': 'neighborhood',
+        'transit': 'transit',
+        'notes': 'notes',
+        'interaction': 'interactionWithGuests',
+        'house-rules': 'houseRules',
+    }
+
+    if section and section != 'all':
+        title = raw.get('nickname') or nickname
+        if section == 'amenities':
+            print(f"\n{bold(f'{title} — Amenities')} ({len(amenities)} total)\n")
+            for a in sorted(amenities):
+                print(f"  • {a}")
+            return
+        
+        key = section_map.get(section)
+        if key:
+            val = pub_desc.get(key, '')
+            label = section.replace('-', ' ').title()
+            print(f"\n{bold(f'{title} — {label}')}\n")
+            if val:
+                for line in _wrap_text(val, 76):
+                    print(f"  {line}")
+            else:
+                print(f"  (empty)")
+            return
+
     # Basic info
     address = raw.get('address', {})
     if isinstance(address, dict):
@@ -277,7 +322,6 @@ def run_show(args):
     else:
         addr_str = address or 'N/A'
 
-    pub_desc = raw.get('publicDescription', {}) or {}
     priv_desc_raw = raw.get('privateDescription', '') or ''
     if isinstance(priv_desc_raw, dict):
         priv_desc = '\n'.join(f"  {k}: {v}" for k, v in priv_desc_raw.items() if v)
@@ -301,7 +345,6 @@ def run_show(args):
     print_card(f"Listing: {raw.get('nickname') or nickname}", card_data)
 
     # Amenities
-    amenities = raw.get('amenities', [])
     if amenities:
         print(f"\n{bold('Amenities')}")
         # Show in columns
@@ -429,8 +472,31 @@ def run_update_descriptions(args):
     if pub_updates:
         payload['publicDescription'] = pub_updates
 
+    # Amenities
+    add_amenities = getattr(args, 'add_amenities', None) or []
+    remove_amenities = getattr(args, 'remove_amenities', None) or []
+    if add_amenities or remove_amenities:
+        current_amenities = list(raw.get('amenities', []))
+        new_amenities = list(current_amenities)
+        added = []
+        removed = []
+        for a in add_amenities:
+            if a not in new_amenities:
+                new_amenities.append(a)
+                added.append(a)
+        for a in remove_amenities:
+            if a in new_amenities:
+                new_amenities.remove(a)
+                removed.append(a)
+        if added or removed:
+            payload['amenities'] = sorted(new_amenities)
+            if added:
+                changes.append(('amenities (added)', '', ', '.join(added)))
+            if removed:
+                changes.append(('amenities (removed)', ', '.join(removed), ''))
+
     if not changes:
-        print(yellow("No changes specified. Use --title, --description, --space, etc."))
+        print(yellow("No changes specified. Use --title, --description, --space, --add-amenity, --remove-amenity, etc."))
         print(yellow("Run 'guesty listings update --help' for all options."))
         return
 

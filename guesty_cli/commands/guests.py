@@ -60,11 +60,11 @@ def run_list(args):
         params = []
         
         if args.search:
-            query += " AND (firstName LIKE ? OR lastName LIKE ? OR email LIKE ? OR phone LIKE ?)"
+            query += " AND (first_name LIKE ? OR last_name LIKE ? OR full_name LIKE ? OR email LIKE ? OR phone LIKE ?)"
             search_term = f'%{args.search}%'
-            params.extend([search_term, search_term, search_term, search_term])
+            params.extend([search_term, search_term, search_term, search_term, search_term])
         
-        query += " ORDER BY lastName, firstName LIMIT ?"
+        query += " ORDER BY last_name, first_name LIMIT ?"
         params.append(args.limit)
         
         try:
@@ -86,13 +86,13 @@ def run_list(args):
         res_count = 0
         if not args.live:
             try:
-                cursor = db.execute("SELECT COUNT(*) FROM reservations WHERE guestId = ?", (g.get('id'),))
+                cursor = db.execute("SELECT COUNT(*) FROM reservations WHERE guest_id = ?", (g.get('id'),))
                 res_count = cursor.fetchone()[0]
             except:
                 pass
         
         rows.append([
-            g.get('fullName', f"{g.get('firstName', '')} {g.get('lastName', '')}".strip()) or 'N/A',
+            g.get('full_name') or g.get('fullName') or ' '.join(filter(None, [g.get('first_name') or g.get('firstName'), g.get('last_name') or g.get('lastName')])) or 'N/A',
             g.get('email', 'N/A'),
             g.get('phone', 'N/A') or 'N/A',
             res_count if not args.live else '-',
@@ -175,7 +175,7 @@ def run_get(args):
     # Print detail card
     card_data = {
         'ID': guest.get('id'),
-        'Name': guest.get('fullName', f"{guest.get('firstName', '')} {guest.get('lastName', '')}".strip()) or 'N/A',
+        'Name': guest.get('full_name') or guest.get('fullName') or f"{guest.get('first_name') or guest.get('firstName', '')} {guest.get('last_name') or guest.get('lastName', '')}".strip() or 'N/A',
         'Email': guest.get('email', 'N/A'),
         'Phone': guest.get('phone', 'N/A') or 'N/A',
         'Nationality': guest.get('nationality', 'N/A') or 'N/A',

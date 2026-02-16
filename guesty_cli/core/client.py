@@ -47,7 +47,7 @@ class GuestyClient:
         """
         self.config = config or load_config()
         self.base_url = self.config.get("api_base_url", "https://open-api.guesty.com")
-        self.api_base = self.base_url  # Commands already include /v1/ in paths
+        self.api_base = self.base_url.rstrip("/") + "/v1/"  # Guesty Open API v1
         
         # Rate limit tracking
         self.rate_limit_remaining = {

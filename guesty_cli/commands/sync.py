@@ -130,7 +130,7 @@ def run_sync(args):
         'users': {'path': 'users', 'table': 'users', 'incremental': True},
         'reviews': {'path': 'reviews', 'table': 'reviews', 'incremental': True},
         'tasks': {'path': 'tasks', 'table': 'tasks', 'incremental': True},
-        'financials': {'path': 'financials', 'table': 'financials', 'incremental': False},
+        'financials': {'path': 'finance/invoices', 'table': 'financials', 'incremental': False},
         'webhooks': {'path': 'webhooks', 'table': 'webhooks', 'incremental': False},
     }
     

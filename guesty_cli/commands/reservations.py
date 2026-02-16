@@ -41,8 +41,8 @@ def format_source(source_str):
 
 def _get_guest_name(row):
     """Extract guest name from row, using direct column or joining from guests table."""
-    # First try direct guestName column
-    guest_name = row.get('guestName')
+    # First try direct guestName column (snake_case DB or camelCase API)
+    guest_name = row.get('guest_name') or row.get('guestName')
     if guest_name:
         return guest_name
 
@@ -57,7 +57,7 @@ def _get_guest_name(row):
         return f"{first_name} {last_name}".strip()
 
     # Try parsing from raw_json
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -89,8 +89,8 @@ def _get_guest_name(row):
 
 def _get_price_from_row(row, price_field='totalPrice'):
     """Extract price from row, using direct column, calculated from financials, or parsing from raw_json."""
-    # First try direct column
-    price = row.get(price_field, 0)
+    # First try direct column (snake_case DB columns and camelCase API fields)
+    price = row.get(price_field, 0) or row.get('total_price', 0) or row.get('totalPrice', 0)
     if price:
         return float(price)
 
@@ -99,14 +99,14 @@ def _get_price_from_row(row, price_field='totalPrice'):
     if calculated:
         return float(calculated)
 
-    # Try payoutAmount if looking for totalPrice and it's 0
-    if price_field == 'totalPrice':
-        price = row.get('payoutAmount', 0)
+    # Try payoutAmount / total_price if looking for totalPrice and it's 0
+    if price_field in ('totalPrice', 'payoutAmount'):
+        price = row.get('payoutAmount', 0) or row.get('total_price', 0)
         if price:
             return float(price)
 
     # Parse from raw_json
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -141,7 +141,7 @@ def _get_balance_due_from_row(row):
         return float(balance)
 
     # Try to calculate from raw_json
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -167,7 +167,7 @@ def _get_status_from_row(row):
     if status:
         return status
 
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -186,7 +186,7 @@ def _get_source_from_row(row):
     if source:
         return source
 
-    raw_json = row.get('raw_json')
+    raw_json = row.get('raw_json') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -455,7 +455,8 @@ def run_list(args):
             query += " AND r.check_in <= ?"
             params.append(f'{args.to_date}T23:59:59.999Z')
         if args.guest:
-            query += " AND (r.guestName LIKE ? OR r.guestEmail LIKE ? OR g.fullName LIKE ? OR g.firstName LIKE ? OR g.lastName LIKE ?)"
+            query += " AND (r.guest_name LIKE ? OR r.guest_email LIKE ? OR g.full_name LIKE ? OR g.first_name LIKE ? OR g.last_name LIKE ?)"
+            # Note: r.guest_name and r.guest_email are snake_case DB columns; g.* references the guests table join
             search_term = f'%{args.guest}%'
             params.extend([search_term, search_term, search_term, search_term, search_term])
 
@@ -494,8 +495,8 @@ def run_list(args):
             r.get('confirmation_code', 'N/A'),
             guest_name[:30] if guest_name else 'N/A',
             listing_name[:25] if listing_name else 'N/A',
-            clean_date(r.get('checkIn')),
-            clean_date(r.get('checkOut')),
+            clean_date(r.get('check_in') or r.get('checkIn')),
+            clean_date(r.get('check_out') or r.get('checkOut')),
             status,
             format_source(source),
             format_money(price, r.get('currency', 'USD')),
@@ -663,12 +664,12 @@ def run_get(args):
     payout = _get_price_from_row(reservation, 'payoutAmount')
     balance_due = _get_balance_due_from_row(reservation)
     
-    # Extract nights and guests from raw_json if not directly available
-    nights_count = reservation.get('nightsCount')
-    guests_count = reservation.get('guestsCount')
+    # Extract nights and guests — try snake_case DB columns first, then camelCase
+    nights_count = reservation.get('nights') or reservation.get('nightsCount')
+    guests_count = reservation.get('guests_count') or reservation.get('guestsCount')
     
     if not nights_count or not guests_count:
-        raw_json = reservation.get('raw_json')
+        raw_json = reservation.get('raw_json') or reservation.get('raw_data')
         if raw_json:
             try:
                 raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
@@ -687,11 +688,11 @@ def run_get(args):
         'ID': reservation.get('id'),
         'Confirmation Code': reservation.get('confirmation_code'),
         'Guest': guest_name,
-        'Guest Email': reservation.get('guestEmail', 'N/A'),
-        'Guest Phone': reservation.get('guestPhone', 'N/A') or 'N/A',
+        'Guest Email': reservation.get('guest_email') or reservation.get('guestEmail', 'N/A'),
+        'Guest Phone': reservation.get('guest_phone') or reservation.get('guestPhone', 'N/A') or 'N/A',
         'Listing': listing_name,
-        'Check-in': clean_date(reservation.get('checkIn')),
-        'Check-out': clean_date(reservation.get('checkOut')),
+        'Check-in': clean_date(reservation.get('check_in') or reservation.get('checkIn')),
+        'Check-out': clean_date(reservation.get('check_out') or reservation.get('checkOut')),
         'Nights': nights_count if nights_count is not None else 'N/A',
         'Guests': guests_count if guests_count is not None else 'N/A',
         'Status': status,

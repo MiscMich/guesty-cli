@@ -605,9 +605,9 @@ def run_get(args):
             cursor = db.execute("""
                 SELECT r.*,
                        l.nickname as listing_nickname,
-                       g.fullName as guest_fullName,
-                       g.firstName as guest_firstName,
-                       g.lastName as guest_lastName
+                       g.full_name as guest_fullName,
+                       g.first_name as guest_firstName,
+                       g.last_name as guest_lastName
                 FROM reservations r
                 LEFT JOIN listings l ON r.listing_id = l.id
                 LEFT JOIN guests g ON r.guest_id = g.id
@@ -620,9 +620,9 @@ def run_get(args):
                 cursor = db.execute("""
                     SELECT r.*,
                            l.nickname as listing_nickname,
-                           g.fullName as guest_fullName,
-                           g.firstName as guest_firstName,
-                           g.lastName as guest_lastName
+                           g.full_name as guest_fullName,
+                           g.first_name as guest_firstName,
+                           g.last_name as guest_lastName
                     FROM reservations r
                     LEFT JOIN listings l ON r.listing_id = l.id
                     LEFT JOIN guests g ON r.guest_id = g.id

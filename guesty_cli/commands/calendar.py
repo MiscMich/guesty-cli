@@ -515,7 +515,7 @@ def _block_listing(
         return result
     
     try:
-        client.api_put(f'/v1/listings/{listing_id}/calendar', data)
+        client.api_put(f'listings/{listing_id}/calendar', data)
         result['status'] = 'success'
     except RateLimitError as e:
         result['status'] = 'rate_limited'
@@ -554,7 +554,7 @@ def _unblock_listing(
         return result
     
     try:
-        client.api_put(f'/v1/listings/{listing_id}/calendar', data)
+        client.api_put(f'listings/{listing_id}/calendar', data)
         result['status'] = 'success'
     except RateLimitError as e:
         result['status'] = 'rate_limited'
@@ -596,7 +596,7 @@ def _price_listing(
         return result
     
     try:
-        client.api_put(f'/v1/listings/{listing_id}/calendar', data)
+        client.api_put(f'listings/{listing_id}/calendar', data)
         result['status'] = 'success'
     except RateLimitError as e:
         result['status'] = 'rate_limited'
@@ -1061,7 +1061,7 @@ def run_price_dynamic(args):
     data = {'dates': dates_data}
     
     try:
-        client.api_put(f'/v1/listings/{listing_id}/calendar', data)
+        client.api_put(f'listings/{listing_id}/calendar', data)
         print(green(f"✓ Updated price to ${new_price:.2f} for {len(dates)} days on '{nickname}'"))
         print(f"  Occupancy: {occupancy:.1f}% | Strategy: {strategy}")
     except Exception as e:

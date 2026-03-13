@@ -186,7 +186,7 @@ def run_list(args):
             return
         client = GuestyClient(config)
         try:
-            listings = client.api_get_all('/v1/listings', {})
+            listings = client.api_get_all('listings', {})
         except Exception as e:
             print(red(f"Error fetching listings: {e}"))
             return
@@ -266,7 +266,7 @@ def run_show(args):
             return
         client = GuestyClient(config)
         try:
-            raw = client.api_get(f'/v1/listings/{listing_id}')
+            raw = client.api_get(f'listings/{listing_id}')
         except Exception as e:
             print(red(f"Error fetching listing: {e}"))
             return
@@ -525,7 +525,7 @@ def run_update_descriptions(args):
 
     client = GuestyClient(config)
     try:
-        result = client.api_put(f'/v1/listings/{listing_id}', payload)
+        result = client.api_put(f'listings/{listing_id}', payload)
         print(green(f"✓ Listing '{nickname}' updated successfully!"))
     except Exception as e:
         print(red(f"Error updating listing: {e}"))
@@ -637,10 +637,10 @@ def run_get(args):
             return
         client = GuestyClient(config)
         try:
-            listing = client.api_get(f'/v1/listings/{listing_id}')
+            listing = client.api_get(f'listings/{listing_id}')
         except:
             try:
-                all_listings = client.api_get_all('/v1/listings', {})
+                all_listings = client.api_get_all('listings', {})
                 for l in all_listings:
                     if l.get('nickname') == listing_id:
                         listing = l

@@ -117,7 +117,7 @@ def run_list(args):
             params['filters'] = json.dumps(filters)
         
         try:
-            tasks = client.api_get_all('/v1/tasks', params)
+            tasks = client.api_get_all('tasks', params)
         except Exception as e:
             print(red(f"Error fetching tasks: {e}"))
             return
@@ -197,7 +197,7 @@ def run_view(args):
             return
         client = GuestyClient(config)
         try:
-            task = client.api_get(f'/v1/tasks/{args.id}')
+            task = client.api_get(f'tasks/{args.id}')
         except Exception as e:
             print(red(f"Error fetching task: {e}"))
             return
@@ -279,7 +279,7 @@ def run_create(args):
     client = GuestyClient(config)
     
     try:
-        result = client.api_post('/v1/tasks', data)
+        result = client.api_post('tasks', data)
         print(green(f"✓ Task created: {result.get('title')}"))
         print(f"  ID: {result.get('_id')}")
         print(f"  Listing: {listing['nickname']}")
@@ -317,7 +317,7 @@ def run_update(args):
     client = GuestyClient(config)
     
     try:
-        result = client.api_put(f'/v1/tasks/{args.id}', data)
+        result = client.api_put(f'tasks/{args.id}', data)
         print(green(f"✓ Task updated: {result.get('title')}"))
     except Exception as e:
         print(red(f"Error updating task: {e}"))
@@ -340,7 +340,7 @@ def run_complete(args):
     client = GuestyClient(config)
     
     try:
-        result = client.api_put(f'/v1/tasks/{args.id}', data)
+        result = client.api_put(f'tasks/{args.id}', data)
         print(green(f"✓ Task completed: {result.get('title')}"))
     except Exception as e:
         print(red(f"Error completing task: {e}"))
@@ -358,7 +358,7 @@ def run_delete(args):
     client = GuestyClient(config)
     
     try:
-        task = client.api_get(f'/v1/tasks/{args.id}')
+        task = client.api_get(f'tasks/{args.id}')
     except Exception as e:
         print(red(f"Error fetching task: {e}"))
         return
@@ -374,7 +374,7 @@ def run_delete(args):
     client = GuestyClient(config)
     
     try:
-        client.api_delete(f'/v1/tasks/{args.id}')
+        client.api_delete(f'tasks/{args.id}')
         print(green(f"✓ Task {args.id} deleted"))
     except Exception as e:
         print(red(f"Error deleting task: {e}"))

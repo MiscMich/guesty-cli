@@ -160,14 +160,17 @@ def run_auth(args):
     try:
         from datetime import datetime
         expires_at = config.get('token_expires_at')
-        cached_token = config.get('cached_token')
+        cached_token = config.get('cached_token') or config.get('token')
         
         if not cached_token:
             print(f"Token Status: {yellow('Not cached')}")
             print("  Run any command that requires API access to fetch a token.")
         elif expires_at:
+            from datetime import timezone
             expires = datetime.fromisoformat(expires_at)
-            now = datetime.now()
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
             hours_remaining = (expires - now).total_seconds() / 3600
             
             if hours_remaining > 0:

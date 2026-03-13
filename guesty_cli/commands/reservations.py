@@ -405,7 +405,7 @@ def run_list(args):
             params['filters'] = json.dumps(filters)
 
         try:
-            reservations = client.api_get_all('/v1/reservations', params)
+            reservations = client.api_get_all('reservations', params)
         except Exception as e:
             print(red(f"Error fetching reservations: {e}"))
             return
@@ -583,12 +583,12 @@ def run_get(args):
             return
         client = GuestyClient(config)
         try:
-            reservation = client.api_get(f'/v1/reservations/{args.id_or_code}')
+            reservation = client.api_get(f'reservations/{args.id_or_code}')
         except:
             # Try by confirmation code
             try:
                 params = {'filters': json.dumps([{"field": "confirmation_code", "operator": "$eq", "value": args.id_or_code}])}
-                results = client.api_get_all('/v1/reservations', params)
+                results = client.api_get_all('reservations', params)
                 if results:
                     reservation = results[0]
                 else:

@@ -172,7 +172,7 @@ def _fetch_integrations_from_api(client: GuestyClient) -> list:
     
     # Try the main integrations endpoint
     try:
-        results = client.api_get_all('/v1/integrations', {})
+        results = client.api_get_all('integrations', {})
         if results:
             integrations.extend(results)
     except Exception as e:
@@ -182,7 +182,7 @@ def _fetch_integrations_from_api(client: GuestyClient) -> list:
     # Try alternative endpoints
     if not integrations:
         try:
-            results = client.api_get_all('/v1/channels', {})
+            results = client.api_get_all('channels', {})
             if results:
                 integrations.extend(results)
         except:
@@ -190,7 +190,7 @@ def _fetch_integrations_from_api(client: GuestyClient) -> list:
     
     # Get listings to map integrations to listing names
     try:
-        listings = client.api_get_all('/v1/listings', {'fields': '_id nickname title'})
+        listings = client.api_get_all('listings', {'fields': '_id nickname title'})
         listing_map = {l.get('_id'): l for l in listings}
     except:
         listing_map = {}

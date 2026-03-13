@@ -180,7 +180,7 @@ def run_list(args):
         
         try:
             # Reviews uses different format
-            result = client.api_get('/v1/reviews', params)
+            result = client.api_get('reviews', params)
             reviews = result.get('data', []) if isinstance(result, dict) else result
         except Exception as e:
             print(red(f"Error fetching reviews: {e}"))

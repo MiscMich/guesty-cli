@@ -191,7 +191,7 @@ class GuestyClient:
         
         raise GuestyError("Max retries exceeded")
     
-    def get_token(self) -> str:
+    def get_token(self, force_refresh: bool = False) -> str:
         """Get a valid access token (cached or fresh).
         
         Returns:
@@ -204,7 +204,7 @@ class GuestyClient:
         # Check for cached token
         token, expires_at = get_cached_token()
         
-        if token and expires_at:
+        if not force_refresh and token and expires_at:
             try:
                 expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)

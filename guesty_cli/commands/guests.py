@@ -50,7 +50,7 @@ def run_list(args):
             return
         client = GuestyClient(config)
         try:
-            guests = client.api_get_all('/v1/guests', {'limit': min(args.limit, 100)})
+            guests = client.api_get_all('guests', {'limit': min(args.limit, 100)})
         except Exception as e:
             print(red(f"Error fetching guests: {e}"))
             return
@@ -117,11 +117,11 @@ def run_get(args):
             return
         client = GuestyClient(config)
         try:
-            guest = client.api_get(f'/v1/guests/{args.id_or_email}')
+            guest = client.api_get(f'guests/{args.id_or_email}')
         except:
             # Try by email
             try:
-                guests = client.api_get_all('/v1/guests', {'limit': 100})
+                guests = client.api_get_all('guests', {'limit': 100})
                 for g in guests:
                     if g.get('email') == args.id_or_email:
                         guest = g

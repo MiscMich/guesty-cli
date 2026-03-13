@@ -97,7 +97,7 @@ def run_list(args):
         client = GuestyClient(config)
         try:
             # Owners returns raw array
-            owners = client.api_get('/v1/owners')
+            owners = client.api_get('owners')
             if not isinstance(owners, list):
                 owners = owners.get('results', [])
         except Exception as e:
@@ -162,11 +162,11 @@ def run_get(args):
             return
         client = GuestyClient(config)
         try:
-            owner = client.api_get(f'/v1/owners/{args.id_or_name}')
+            owner = client.api_get(f'owners/{args.id_or_name}')
         except:
             # Try to find by name
             try:
-                owners = client.api_get('/v1/owners')
+                owners = client.api_get('owners')
                 if not isinstance(owners, list):
                     owners = owners.get('results', [])
                 for o in owners:
@@ -317,7 +317,7 @@ def run_create(args):
     client = GuestyClient(config)
     
     try:
-        result = client.api_post('/v1/owners', data)
+        result = client.api_post('owners', data)
         print(green(f"✓ Owner created"))
         print(f"  ID: {result.get('_id')}")
         print(f"  Name: {result.get('full_name')}")
@@ -363,7 +363,7 @@ def run_update(args):
     client = GuestyClient(config)
     
     try:
-        result = client.api_put(f'/v1/owners/{owner["id"]}', data)
+        result = client.api_put(f'owners/{owner["id"]}', data)
         print(green(f"✓ Owner updated: {result.get('full_name')}"))
     except Exception as e:
         print(red(f"Error updating owner: {e}"))
@@ -393,7 +393,7 @@ def run_delete(args):
     client = GuestyClient(config)
 
     try:
-        client.api_delete(f'/v1/owners/{owner["id"]}')
+        client.api_delete(f'owners/{owner["id"]}')
         print(green(f"✓ Owner '{owner['full_name']}' deleted"))
     except Exception as e:
         print(red(f"Error deleting owner: {e}"))
@@ -450,7 +450,7 @@ def run_owner_reservations(args):
                 params['checkInDateTo'] = args.to_date
 
             # Call the API endpoint
-            result = client.api_get(f'/v1/owners/{owner_id}/reservations', params=params if params else None)
+            result = client.api_get(f'owners/{owner_id}/reservations', params=params if params else None)
 
             # Handle different response formats
             if isinstance(result, list):

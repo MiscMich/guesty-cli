@@ -100,7 +100,7 @@ def handle_reservation_created(payload: dict, client: GuestyClient, db) -> dict:
     
     # Fetch full reservation from API
     try:
-        full_res = client.api_get(f'/v1/reservations/{res_id}')
+        full_res = client.api_get(f'reservations/{res_id}')
         if isinstance(full_res, dict):
             # Upsert to database
             upsert_reservations(db, [full_res])
@@ -131,7 +131,7 @@ def handle_reservation_canceled(payload: dict, client: GuestyClient, db) -> dict
     
     # Fetch updated status from API
     try:
-        full_res = client.api_get(f'/v1/reservations/{res_id}')
+        full_res = client.api_get(f'reservations/{res_id}')
         if isinstance(full_res, dict):
             upsert_reservations(db, [full_res])
             return {'status': 'success', 'action': 'synced_canceled', 'id': res_id}
@@ -177,7 +177,7 @@ def handle_review_created(payload: dict, client: GuestyClient, db) -> dict:
     
     try:
         # Fetch full review from API
-        full_review = client.api_get(f'/v1/reviews/{review_id}')
+        full_review = client.api_get(f'reviews/{review_id}')
         if isinstance(full_review, dict):
             upsert_reviews(db, [full_review])
             return {'status': 'success', 'action': 'synced', 'id': review_id}
@@ -198,7 +198,7 @@ def handle_guest_updated(payload: dict, client: GuestyClient, db) -> dict:
         raise ValueError("No guest ID in payload")
     
     try:
-        full_guest = client.api_get(f'/v1/guests/{guest_id}')
+        full_guest = client.api_get(f'guests/{guest_id}')
         if isinstance(full_guest, dict):
             upsert_guests(db, [full_guest])
             return {'status': 'success', 'action': 'synced', 'id': guest_id}
@@ -344,7 +344,7 @@ def run_list(args):
     
     try:
         # Webhooks returns raw array
-        webhooks = client.api_get('/v1/webhooks')
+        webhooks = client.api_get('webhooks')
         if not isinstance(webhooks, list):
             webhooks = webhooks.get('results', [])
     except Exception as e:
@@ -411,7 +411,7 @@ def run_create(args):
     client = GuestyClient(config)
     
     try:
-        result = client.api_post('/v1/webhooks', data)
+        result = client.api_post('webhooks', data)
         print(green(f"✓ Webhook created"))
         print(f"  ID: {result.get('_id')}")
         print(f"  URL: {result.get('url')}")
@@ -444,7 +444,7 @@ def run_update(args):
     client = GuestyClient(config)
     
     try:
-        result = client.api_put(f'/v1/webhooks/{args.id}', data)
+        result = client.api_put(f'webhooks/{args.id}', data)
         print(green(f"✓ Webhook updated"))
         print(f"  ID: {args.id}")
         print(f"  Events: {', '.join(result.get('events', []))}")
@@ -464,7 +464,7 @@ def run_delete(args):
     client = GuestyClient(config)
     
     try:
-        webhooks = client.api_get('/v1/webhooks')
+        webhooks = client.api_get('webhooks')
         if not isinstance(webhooks, list):
             webhooks = webhooks.get('results', [])
         
@@ -490,7 +490,7 @@ def run_delete(args):
         return
     
     try:
-        client.api_delete(f'/v1/webhooks/{args.id}')
+        client.api_delete(f'webhooks/{args.id}')
         print(green(f"✓ Webhook {args.id} deleted"))
     except Exception as e:
         print(red(f"Error deleting webhook: {e}"))
@@ -508,7 +508,7 @@ def run_test(args):
     client = GuestyClient(config)
     
     try:
-        webhooks = client.api_get('/v1/webhooks')
+        webhooks = client.api_get('webhooks')
         if not isinstance(webhooks, list):
             webhooks = webhooks.get('results', [])
         
@@ -714,7 +714,7 @@ def run_server(args):
     # Test API connection
     print("Testing Guesty API connection...")
     try:
-        client.api_get('/v1/listings', params={'limit': 1})
+        client.api_get('listings', params={'limit': 1})
         print(green("✓ API connection successful"))
     except Exception as e:
         print(red(f"✗ API connection failed: {e}"))

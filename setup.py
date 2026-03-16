@@ -1,15 +1,14 @@
 from setuptools import setup, find_packages
-from guesty_cli import __version__
 
 setup(
     name='guesty-cli',
-    version=__version__,
+    version='0.2.1',
     description='Universal CLI for Guesty PMS',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     author='Villa Paraiso Vacation Rentals',
     author_email='tech@paraisovacationrentals.com',
-    url='https://github.com/villaparaiso/guesty-cli',
+    url='https://github.com/MiscMich/guesty-cli',
     packages=find_packages(),
     python_requires='>=3.8',
     entry_points={
@@ -33,8 +32,8 @@ setup(
     ],
     keywords='guesty pms vacation rental cli automation',
     project_urls={
-        'Bug Reports': 'https://github.com/villaparaiso/guesty-cli/issues',
-        'Source': 'https://github.com/villaparaiso/guesty-cli',
-        'Documentation': 'https://github.com/villaparaiso/guesty-cli/blob/main/README.md',
+        'Bug Reports': 'https://github.com/MiscMich/guesty-cli/issues',
+        'Source': 'https://github.com/MiscMich/guesty-cli',
+        'Documentation': 'https://github.com/MiscMich/guesty-cli/blob/main/README.md',
     },
 )

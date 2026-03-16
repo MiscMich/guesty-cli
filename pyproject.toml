@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "guesty-cli"
-version = "0.2.0"
+version = "0.2.1"
 description = "Universal CLI for Guesty PMS"
 readme = "README.md"
 license = {text = "MIT"}
@@ -34,10 +34,10 @@ keychain = ["keyring>=23.0"]
 dev = ["pytest>=7.0"]
 
 [project.urls]
-Homepage = "https://github.com/villaparaiso/guesty-cli"
-Documentation = "https://github.com/villaparaiso/guesty-cli/blob/main/README.md"
-Repository = "https://github.com/villaparaiso/guesty-cli"
-"Bug Tracker" = "https://github.com/villaparaiso/guesty-cli/issues"
+Homepage = "https://github.com/MiscMich/guesty-cli"
+Documentation = "https://github.com/MiscMich/guesty-cli/blob/main/README.md"
+Repository = "https://github.com/MiscMich/guesty-cli"
+"Bug Tracker" = "https://github.com/MiscMich/guesty-cli/issues"
 
 [project.scripts]
 guesty = "guesty_cli.main:main"

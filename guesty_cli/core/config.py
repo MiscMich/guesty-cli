@@ -65,6 +65,20 @@ def load_config() -> dict:
         # Merge with defaults to handle new fields
         merged = DEFAULT_CONFIG.copy()
         merged.update(config)
+
+        # Try to load secrets from keychain (keychain takes precedence)
+        from .secrets import get_secret
+        for key in ('client_secret', 'token'):
+            keychain_value = get_secret(key)
+            if keychain_value:
+                merged[key] = keychain_value  # Keychain always wins
+
+        # Environment variable overrides
+        if os.environ.get('GUESTY_CLIENT_ID'):
+            merged['client_id'] = os.environ['GUESTY_CLIENT_ID']
+        if os.environ.get('GUESTY_CLIENT_SECRET'):
+            merged['client_secret'] = os.environ['GUESTY_CLIENT_SECRET']
+
         return merged
         
     except (json.JSONDecodeError, IOError) as e:
@@ -117,7 +131,15 @@ def update_token_cache(token: str, expires_at: str) -> None:
         expires_at: ISO 8601 timestamp when token expires.
     """
     config = load_config()
-    config["token"] = token
+
+    # Try keychain first
+    from .secrets import store_secret
+    backend = store_secret('token', token)
+    if backend == 'keychain':
+        config["token"] = ""  # Don't store in plaintext config
+    else:
+        config["token"] = token
+
     config["token_expires_at"] = expires_at
     
     # Track token generation

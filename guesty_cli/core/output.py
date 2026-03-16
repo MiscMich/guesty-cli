@@ -1,6 +1,7 @@
 """Output formatting utilities for guesty-cli.
 
 Blue Terminal Aesthetic - Cyberpunk vibes, professional and beautiful.
+Tri-modal output: human (default), json, plain (TSV).
 """
 
 import csv
@@ -10,6 +11,39 @@ import shutil
 import sys
 from datetime import datetime, timedelta
 from typing import Any, Optional, List, Dict
+
+
+# ============================================================================
+# TRI-MODAL OUTPUT SYSTEM (human / json / plain)
+# ============================================================================
+
+class OutputMode:
+    """Global output mode: human (default), json, or plain (TSV)."""
+    HUMAN = "human"
+    JSON = "json"
+    PLAIN = "plain"  # Stable TSV for piping to awk/cut
+
+_current_mode = OutputMode.HUMAN
+_json_select = []        # --select field1,field2
+_json_results_only = False  # --results-only
+
+def set_output_mode(mode, select=None, results_only=False):
+    global _current_mode, _json_select, _json_results_only
+    _current_mode = mode
+    _json_select = select or []
+    _json_results_only = results_only
+
+def get_output_mode():
+    return _current_mode
+
+def is_json():
+    return _current_mode == OutputMode.JSON
+
+def is_plain():
+    return _current_mode == OutputMode.PLAIN
+
+def is_human():
+    return _current_mode == OutputMode.HUMAN
 
 
 # Check for NO_COLOR environment variable
@@ -948,3 +982,91 @@ def print_info(message: str) -> None:
 def magenta(text: str) -> str:
     """Magenta text (for compatibility - returns bright blue instead)."""
     return _c(text, BRIGHT_BLUE)
+
+
+# ============================================================================
+# TRI-MODAL EMIT (universal output dispatcher)
+# ============================================================================
+
+def emit(data, headers=None, human_fn=None):
+    """Universal output dispatcher - route to JSON, TSV, or human output.
+
+    Args:
+        data: List of dicts (for tables) or a single dict (for cards).
+        headers: Column headers for table mode (list of (key, label) tuples).
+        human_fn: Callable that renders human output (called with no args).
+    """
+    if is_json():
+        result = data
+        if _json_results_only and isinstance(data, dict):
+            # Unwrap envelope
+            for key in ('results', 'data', 'items'):
+                if key in data:
+                    result = data[key]
+                    break
+        if _json_select and isinstance(result, list):
+            result = [select_fields(item, _json_select) for item in result]
+        elif _json_select and isinstance(result, dict):
+            result = select_fields(result, _json_select)
+        print_json(result)
+    elif is_plain():
+        if isinstance(data, list) and headers:
+            keys = [h[0] for h in headers]
+            labels = [h[1] for h in headers]
+            print('\t'.join(labels))
+            for item in data:
+                row = []
+                for k in keys:
+                    val = _get_nested(item, k)
+                    row.append(str(val) if val is not None else '')
+                print('\t'.join(row))
+        elif isinstance(data, dict):
+            for k, v in data.items():
+                print(f"{k}\t{v}")
+        else:
+            print_json(data)
+    else:
+        if human_fn:
+            human_fn()
+        elif isinstance(data, list) and headers:
+            labels = [h[1] for h in headers]
+            keys = [h[0] for h in headers]
+            rows = []
+            for item in data:
+                row = [_get_nested(item, k) for k in keys]
+                rows.append(row)
+            print_table(labels, rows)
+        elif isinstance(data, dict):
+            for k, v in data.items():
+                print(f"{k}: {v}")
+
+
+def select_fields(obj, fields):
+    """Select specific fields from a dict, supporting dot paths."""
+    if not isinstance(obj, dict):
+        return obj
+    result = {}
+    for field in fields:
+        val = _get_nested(obj, field)
+        if val is not None:
+            result[field] = val
+    return result
+
+
+def _get_nested(obj, path):
+    """Get nested value from dict using dot notation."""
+    if not isinstance(obj, dict):
+        return None
+    parts = path.split('.')
+    current = obj
+    for part in parts:
+        if isinstance(current, dict):
+            current = current.get(part)
+        else:
+            return None
+    return current
+
+
+def print_plain_kv(key, value):
+    """Print a key-value pair in plain TSV mode."""
+    print(f"{key}\t{value}")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "guesty-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "Universal CLI for Guesty PMS"
 readme = "README.md"
 license = {text = "MIT"}
@@ -27,6 +27,11 @@ classifiers = [
 ]
 keywords = ["guesty", "pms", "vacation", "rental", "cli", "automation"]
 requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+keychain = ["keyring>=23.0"]
+dev = ["pytest>=7.0"]
 
 [project.urls]
 Homepage = "https://github.com/villaparaiso/guesty-cli"

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """guesty-cli — Universal Command-Line Interface for Guesty"""
 
+import os
 import sys
 import argparse
 from guesty_cli import __version__
+from guesty_cli.core.exit_codes import (
+    EXIT_SUCCESS, EXIT_ERROR, EXIT_INTERRUPTED, exit_for_error,
+)
+from guesty_cli.core.output import OutputMode, set_output_mode, is_json, is_plain
 
 # Known subcommands for shortcut handling
 LISTING_ACTIONS = {'get', 'create', 'update', 'delete'}
@@ -45,6 +50,15 @@ def main():
     parser.add_argument('--version', action='version', version=f'guesty-cli v{__version__}')
     parser.add_argument('--no-color', action='store_true', help='Disable colored output')
     parser.add_argument('--json', action='store_true', help='Output as JSON')
+    parser.add_argument('--plain', '-p', '--tsv', action='store_true', help='Output stable TSV (no colors, pipe-friendly)')
+    parser.add_argument('--select', type=str, help='Comma-separated fields to select in JSON mode (supports dot.paths)')
+    parser.add_argument('--results-only', action='store_true', help='In JSON mode, emit only primary results')
+    parser.add_argument('--dry-run', '-n', action='store_true', help='Preview changes without executing them')
+    parser.add_argument('--force', '-y', action='store_true', help='Skip confirmations')
+    parser.add_argument('--access-token', type=str, help='Use provided access token directly (bypasses OAuth flow)',
+                        default=os.environ.get('GUESTY_ACCESS_TOKEN'))
+    parser.add_argument('--no-input', '--non-interactive', action='store_true',
+                        help='Never prompt; fail instead (for CI/agents)')
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
@@ -69,6 +83,9 @@ def main():
         ('sync', 'Data synchronization'),
         ('export', 'Data export'),
         ('statements', 'Owner statement generation'),
+        ('schema', 'CLI schema introspection'),
+        ('completion', 'Shell completion scripts'),
+        ('agent', 'Agent-friendly helpers'),
     ]
     
     registered_count = 0
@@ -77,36 +94,73 @@ def main():
             module = __import__(f'guesty_cli.commands.{module_name}', fromlist=['register'])
             module.register(subparsers)
             registered_count += 1
-        except ImportError:
+        except ImportError as e:
             # Module not yet implemented — skip gracefully
-            pass
+            if os.environ.get('GUESTY_DEBUG'):
+                print(f"Warning: Could not load command '{module_name}': {e}", file=sys.stderr)
     
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
-        sys.exit(0)
-    
-    # Set global no-color
-    if args.no_color:
-        import os
+        sys.exit(EXIT_SUCCESS)
+
+    # Set global no-color (also forced on for plain mode)
+    if args.no_color or args.plain:
         os.environ['NO_COLOR'] = '1'
-    
+
+    # Determine output mode
+    if args.json:
+        mode = OutputMode.JSON
+    elif args.plain:
+        mode = OutputMode.PLAIN
+    else:
+        # Auto-JSON when piped (agent-friendly, like gogcli)
+        if os.environ.get('GUESTY_AUTO_JSON') and not sys.stdout.isatty():
+            mode = OutputMode.JSON
+        else:
+            mode = OutputMode.HUMAN
+
+    select_fields = None
+    if getattr(args, 'select', None):
+        select_fields = [f.strip() for f in args.select.split(',')]
+
+    set_output_mode(
+        mode,
+        select=select_fields,
+        results_only=getattr(args, 'results_only', False),
+    )
+
+    # Store access token override for commands
+    if getattr(args, 'access_token', None):
+        os.environ['_GUESTY_ACCESS_TOKEN'] = args.access_token
+
+    # Store no-input mode for commands
+    if getattr(args, 'no_input', None):
+        os.environ['GUESTY_NO_INPUT'] = '1'
+
     # Check if command was registered
     if not hasattr(args, 'func'):
         print(f"Error: Command '{args.command}' is not yet implemented.", file=sys.stderr)
-        sys.exit(1)
-    
+        sys.exit(EXIT_ERROR)
+
     # Run the command
     try:
         args.func(args)
     except KeyboardInterrupt:
         print('\nAborted.')
-        sys.exit(130)
+        sys.exit(EXIT_INTERRUPTED)
     except Exception as e:
-        from guesty_cli.core.output import red
-        print(red(f'\nError: {e}'))
-        sys.exit(1)
+        code = exit_for_error(e)
+        if is_json():
+            import json as _json
+            print(_json.dumps({"error": str(e), "exit_code": code}))
+        elif is_plain():
+            print(f"error\t{e}")
+        else:
+            from guesty_cli.core.output import red
+            print(red(f'\nError: {e}'))
+        sys.exit(code)
 
 if __name__ == '__main__':
     main()

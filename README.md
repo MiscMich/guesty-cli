@@ -28,12 +28,13 @@ Guesty has no official CLI. If you manage vacation rentals and want to:
 
 ## Features
 
-- **Zero external dependencies** — Python 3.8+ stdlib only (no `requests`, no `click`, no `rich`)
+- **Zero external dependencies** — Python 3.8+ stdlib only (optional `keyring` for OS keychain)
 - **Local-first** — SQLite database with FTS5 full-text search. Query instantly without API calls
-- **API-compliant** — Respects all Guesty rate limits, token limits, and auth requirements
-- **Safe writes** — `--dry-run` on all create/update commands, `--confirm` on deletes, `--live` required for API calls
-- **Pipeline-friendly** — `--json` output on every command for scripting
-- **AI-agent ready** — Structured output, predictable flags, comprehensive `--help`
+- **API-compliant** — Respects all Guesty rate limits (15/s, 120/m, 5000/h), 5 tokens/day with aggressive caching
+- **Secure credentials** — OS keychain storage (macOS Keychain, Linux SecretService) with file fallback
+- **Safe writes** — Global `--dry-run` / `--force` on mutating commands, `--confirm` on deletes
+- **Tri-modal output** — `--json` (scripting), `--plain` (TSV piping), or human-friendly tables
+- **Agent-first** — Stable exit codes, `--access-token` bypass, `--no-input` mode, schema introspection, shell completions
 
 ## Quick Start
 
@@ -78,6 +79,72 @@ guesty search "pool heater"            # Full-text search
 guesty export reservations --format csv # Export to CSV
 ```
 
+## Agent & Automation
+
+guesty-cli is designed for AI agents, CI pipelines, and shell scripts.
+
+### Token-Efficient Workflow
+
+Guesty allows **5 token requests per day** per API key. Use `auth-token` to get one token, then pass it to all commands:
+
+```bash
+# Get token once (burns 1 of 5 daily slots)
+TOKEN=$(guesty auth-token)
+
+# Use for unlimited commands (0 slots burned)
+guesty --access-token "$TOKEN" --json listings list
+guesty --access-token "$TOKEN" --json reservations list --status confirmed
+guesty --access-token "$TOKEN" --plain occupancy | awk '{print $1, $3}'
+```
+
+### Output Modes
+
+```bash
+guesty listings list              # Human-friendly colored tables
+guesty --json listings list       # JSON (for scripts and agents)
+guesty --plain listings list      # TSV (pipe to awk/cut/sort)
+
+# Field selection (JSON mode)
+guesty --json --select id,status,checkIn reservations list
+
+# Strip pagination envelope
+guesty --json --results-only reservations list
+```
+
+### Exit Codes
+
+| Code | Meaning | Agent Action |
+|------|---------|--------------|
+| 0 | Success | Continue |
+| 3 | Empty results | Handle no-data case |
+| 4 | Auth required | Re-authenticate or check credentials |
+| 7 | Rate limited | Back off and retry later |
+| 8 | Retryable error | Retry the command |
+
+Full list: `guesty exit-codes`
+
+### Non-Interactive Mode
+
+```bash
+# CI/agent setup (no prompts)
+export GUESTY_CLIENT_ID="your-id"
+export GUESTY_CLIENT_SECRET="your-secret"
+guesty --no-input init
+
+# Auto-JSON when piped
+export GUESTY_AUTO_JSON=1
+guesty reservations list | jq '.'
+```
+
+### Introspection
+
+```bash
+guesty schema              # Full CLI as machine-readable JSON
+guesty agent capabilities  # Feature and resource list
+guesty agent tips          # Usage guide for agents
+guesty completion bash     # Shell completions (also zsh, fish)
+```
+
 ## Commands Reference
 
 ### Setup & Status
@@ -88,6 +155,13 @@ guesty export reservations --format csv # Export to CSV
 | `guesty status [--json]` | Dashboard overview with stat boxes |
 | `guesty auth --refresh` | Force token refresh |
 | `guesty auth --revoke` | Clear cached token |
+| `guesty auth-token` | Print valid access token (for `--access-token` workflow) |
+| `guesty auth-export [--out FILE] [--include-secrets]` | Export credentials to JSON |
+| `guesty auth-import <file>` | Import credentials from JSON file |
+| `guesty schema [command]` | Print CLI schema as JSON (for agents) |
+| `guesty completion bash\|zsh\|fish` | Generate shell completion scripts |
+| `guesty exit-codes` | Print stable exit codes |
+| `guesty agent capabilities\|tips` | Agent-friendly helpers |
 
 ### Listings (Properties)
 
@@ -242,13 +316,20 @@ guesty export reservations --format csv # Export to CSV
 
 ### Global Flags
 
-| Flag | Description |
-|------|-------------|
-| `--json` | Output as JSON (for piping/scripting) |
-| `--csv` | Output as CSV (for spreadsheets) |
-| `--no-color` | Disable colored terminal output |
-| `--version` | Show version |
-| `--help` | Show help for any command |
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--json` | | Output as JSON |
+| `--plain` | `-p` | Output stable TSV (no colors, pipe-friendly) |
+| `--select FIELDS` | | Comma-separated fields for JSON output |
+| `--results-only` | | Strip pagination envelope in JSON mode |
+| `--dry-run` | `-n` | Preview changes without executing |
+| `--force` | `-y` | Skip confirmations |
+| `--access-token TOKEN` | | Use provided token (bypass OAuth) |
+| `--no-input` | | Never prompt (CI/agent mode) |
+| `--no-color` | | Disable colored output |
+| `--csv` | | Output as CSV (for spreadsheets) |
+| `--version` | | Show version |
+| `--help` | | Show help for any command |
 
 ## Architecture
 

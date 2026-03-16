@@ -29,24 +29,33 @@ guesty reservations --today
 ### First-Time Agent Configuration
 
 ```bash
-# Create config directory
-mkdir -p ~/.guesty-cli
+# Option A: Environment variables (recommended for CI/agents)
+export GUESTY_CLIENT_ID="your-client-id"
+export GUESTY_CLIENT_SECRET="your-client-secret"
+guesty --no-input init
 
-# Write config (for automated/agent setups)
-cat > ~/.guesty-cli/config.json << 'EOF'
-{
-  "client_id": "YOUR_GUESTY_CLIENT_ID",
-  "client_secret": "YOUR_GUESTY_CLIENT_SECRET",
-  "account_name": "your-account",
-  "api_base_url": "https://open-api.guesty.com",
-  "db_path": "~/.guesty-cli/guesty.db"
-}
-EOF
+# Option B: Import from JSON file
+echo '{"client_id":"...","client_secret":"..."}' | guesty auth-import -
 
-# Sync and verify
-guesty sync
-guesty status --json
+# Option C: Interactive (for humans)
+guesty init
 ```
+
+### Token-Efficient Agent Workflow
+
+**CRITICAL**: Guesty limits you to 5 token requests per 24h per API key.
+
+```bash
+# Step 1: Get a token ONCE (burns 1 of 5 daily slots)
+TOKEN=$(guesty auth-token)
+
+# Step 2: Use --access-token for ALL subsequent commands (0 slots burned)
+guesty --access-token "$TOKEN" --json listings list
+guesty --access-token "$TOKEN" --json reservations list
+# ... unlimited commands with the same token (valid 24h)
+```
+
+**DO NOT** create a new GuestyClient or call `auth --refresh` per command. The token is cached in the OS keychain and automatically reused.
 
 ---
 
@@ -102,6 +111,45 @@ checkins_today = [r for r in data.get('results', []) if r.get('checkIn', '').sta
 print(json.dumps(checkins_today, indent=2))
 "
 ```
+
+### TSV Output for Shell Pipelines
+
+```bash
+# Pipe-friendly tab-separated output
+guesty --plain reservations list | awk -F'\t' '{print $1, $3}'
+guesty --plain exit-codes | cut -f1,2
+
+# Field selection in JSON mode
+guesty --json --select id,status,guest.name reservations list
+guesty --json --results-only listings list  # Strip pagination envelope
+```
+
+### Exit Codes for Error Handling
+
+```bash
+guesty --json reservations get CONF123
+case $? in
+  0) echo "Success" ;;
+  3) echo "No results found" ;;
+  4) echo "Authentication required — run: TOKEN=\$(guesty auth-token)" ;;
+  5) echo "Resource not found" ;;
+  7) echo "Rate limited — wait and retry" ;;
+  8) echo "Transient error — retry" ;;
+  *) echo "Unknown error" ;;
+esac
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GUESTY_ACCESS_TOKEN` | Use provided access token (bypasses OAuth) |
+| `GUESTY_CLIENT_ID` | Override client_id from config |
+| `GUESTY_CLIENT_SECRET` | Override client_secret from config |
+| `GUESTY_AUTO_JSON` | Set to `1` for auto-JSON when stdout is piped |
+| `GUESTY_NO_INPUT` | Set to `1` to prevent all interactive prompts |
+| `GUESTY_DEBUG` | Set to `1` for verbose debug output |
+| `NO_COLOR` | Disable colored output |
 
 ### Status Check JSON Structure
 
@@ -884,10 +932,14 @@ load_agent_state() {
 |------|---------|
 | 0 | Success |
 | 1 | General error |
-| 2 | Authentication error |
-| 3 | Rate limit exceeded |
-| 4 | Not found |
+| 3 | Empty results |
+| 4 | Auth required |
+| 5 | Not found |
+| 7 | Rate limited |
+| 8 | Retryable error |
 | 130 | Interrupted (Ctrl+C) |
+
+Full list: `guesty exit-codes`
 
 ### File Locations
 

@@ -743,4 +743,4 @@ MIT — See [LICENSE](LICENSE) for details.
 
 ---
 
-Built with 🌴 by [Villa Paraiso Vacation Rentals](https://paraisovacationrentals.com)
+Built with 🌴 by [Michel Lopez](https://github.com/MiscMich) at [Paraiso Vacation Rentals](https://paraisovacationrentals.com)

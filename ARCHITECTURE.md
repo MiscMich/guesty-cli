@@ -342,10 +342,10 @@ ALTER TABLE listings ADD COLUMN room_type TEXT; -- 'entire_home', 'private_room'
 ALTER TABLE listings ADD COLUMN check_in_time TEXT DEFAULT '16:00';
 ALTER TABLE listings ADD COLUMN check_out_time TEXT DEFAULT '10:00';
 ALTER TABLE listings ADD COLUMN cleaning_time_hours INTEGER DEFAULT 4;
-ALTER TABLE listings ADD COLUMN wifi_network TEXT;
-ALTER TABLE listings ADD COLUMN wifi_password TEXT;
-ALTER TABLE listings ADD COLUMN door_code TEXT;
-ALTER TABLE listings ADD COLUMN alarm_code TEXT;
+ALTER TABLE listings ADD COLUMN wifi_network TEXT; -- Consider encrypting at rest
+ALTER TABLE listings ADD COLUMN wifi_password TEXT; -- ENCRYPT: sensitive credential
+ALTER TABLE listings ADD COLUMN door_code TEXT; -- ENCRYPT: sensitive credential
+ALTER TABLE listings ADD COLUMN alarm_code TEXT; -- ENCRYPT: sensitive credential
 ALTER TABLE listings ADD COLUMN emergency_contact TEXT;
 ALTER TABLE listings ADD COLUMN cleaning_company_id TEXT;
 ALTER TABLE listings ADD COLUMN maintenance_company_id TEXT;
@@ -355,7 +355,7 @@ ALTER TABLE listings ADD COLUMN synced_at TEXT;
 
 -- Enhanced guests table
 ALTER TABLE guests ADD COLUMN date_of_birth TEXT;
-ALTER TABLE guests ADD COLUMN passport_number TEXT;
+ALTER TABLE guests ADD COLUMN passport_number TEXT; -- ENCRYPT: PII, consider regulatory requirements
 ALTER TABLE guests ADD COLUMN passport_country TEXT;
 ALTER TABLE guests ADD COLUMN id_verified INTEGER DEFAULT 0;
 ALTER TABLE guests ADD COLUMN stripe_customer_id TEXT;

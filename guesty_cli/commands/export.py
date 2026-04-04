@@ -19,7 +19,8 @@ def register(subparsers):
     parser.add_argument('table', help='Table to export (listings, reservations, guests, owners, reviews, tasks, financials)')
     parser.add_argument('--format', choices=['csv', 'json'], default='csv', help='Export format')
     parser.add_argument('--output', type=str, help='Output file path')
-    parser.add_argument('--where', type=str, help='SQL WHERE clause filter')
+    parser.add_argument('--where', type=str, help='SQL WHERE clause filter (e.g. "status = \'confirmed\'" or "check_in > \'2026-01-01\'")')
+    parser.add_argument('--limit', type=int, help='Maximum number of rows to export')
 
 
 def run(args):
@@ -47,10 +48,23 @@ def run(args):
     try:
         query = f"SELECT * FROM {table}"
         params = []
-        
+
         if args.where:
+            # Validate: block dangerous SQL patterns (this is a local CLI tool,
+            # but we still guard against accidental destructive operations)
+            where_upper = args.where.upper().strip()
+            dangerous = ['DROP ', 'DELETE ', 'INSERT ', 'UPDATE ', 'ALTER ', 'CREATE ',
+                         'ATTACH ', 'DETACH ', '--', ';']
+            for pattern in dangerous:
+                if pattern in where_upper:
+                    print(red(f"Dangerous SQL pattern detected in --where: '{pattern.strip()}'"))
+                    print("The --where flag only supports SELECT filter conditions.")
+                    return
             query += f" WHERE {args.where}"
-        
+
+        if args.limit:
+            query += f" LIMIT {int(args.limit)}"
+
         cursor = db.execute(query, params)
         columns = [description[0] for description in cursor.description]
         rows = cursor.fetchall()

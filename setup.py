@@ -10,6 +10,12 @@ setup(
     author_email='tech@paraisovacationrentals.com',
     url='https://github.com/MiscMich/guesty-cli',
     packages=find_packages(),
+    package_data={
+        # Ship the API spec inside the package so `guesty raw --list/--search`
+        # works after install, not just from a checkout.
+        'guesty_cli': ['api-spec.json'],
+    },
+    include_package_data=True,
     python_requires='>=3.8',
     entry_points={
         'console_scripts': [

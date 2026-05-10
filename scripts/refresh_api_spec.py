@@ -26,7 +26,8 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_DIR = REPO_ROOT / "docs" / "api-reference"
-OUT_FILE = REPO_ROOT / "api-spec.json"
+# Spec lives inside the package so wheel installs include it via package_data.
+OUT_FILE = REPO_ROOT / "guesty_cli" / "api-spec.json"
 
 JSON_BLOCK_RE = re.compile(r"```json\n([\s\S]*?)\n```")
 

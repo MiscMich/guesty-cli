@@ -29,4 +29,4 @@ config.json
 *.json
 
 # But DO ship the API spec — it's how `guesty raw --list/--search` discovery works
-!api-spec.json
+!**/api-spec.json

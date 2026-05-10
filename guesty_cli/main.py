@@ -84,6 +84,7 @@ def main():
         ('schema', 'CLI schema introspection'),
         ('completion', 'Shell completion scripts'),
         ('agent', 'Agent-friendly helpers'),
+        ('raw', 'Raw API access — call any of the 315+ Open API endpoints directly'),
     ]
     
     registered_count = 0

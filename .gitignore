@@ -27,3 +27,6 @@ config.json
 .env
 *.csv
 *.json
+
+# But DO ship the API spec — it's how `guesty raw --list/--search` discovery works
+!**/api-spec.json

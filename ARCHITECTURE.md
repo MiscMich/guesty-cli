@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines the architecture for a production-grade Guesty CLI designed to handle Villa Paraiso's 22 listings, 2,348+ reservations, and $1.24M+ in tracked financials. The enhanced CLI introduces enterprise-grade data modeling, efficient syncing, comprehensive financial tracking, multi-calendar management, and real-time webhook processing.
+This document outlines the architecture for a production-grade Guesty CLI designed to handle a typical small-to-mid PMS portfolio (tens of listings, thousands of reservations, six- to seven-figure tracked financials). The enhanced CLI introduces enterprise-grade data modeling, efficient syncing, comprehensive financial tracking, multi-calendar management, and real-time webhook processing.
 
 ---
 
@@ -1451,17 +1451,17 @@ class CalendarSyncManager {
 }
 ```
 
-### 4.2 Optimized 18-Property Sync
+### 4.2 Optimized Multi-Property Sync
 
-For Villa Paraiso's 22 listings (targeting 18 active properties):
+For a portfolio of N listings (filter to the active subset):
 
 ```typescript
-class VillaParaisoCalendarSync {
+class PortfolioCalendarSync {
   private readonly ACTIVE_LISTINGS = [
-    'emerald-oasis',
-    'coral-cottage',
-    'sunset-villa',
-    // ... 18 properties
+    'listing-slug-a',
+    'listing-slug-b',
+    'listing-slug-c',
+    // ... N properties
   ];
   
   private readonly SYNC_WINDOWS = {
@@ -2136,7 +2136,7 @@ class DeadLetterQueue {
 | Metric | Target | Measurement |
 |--------|--------|-------------|
 | Sync Latency (incremental) | < 30 seconds | Time from API change to DB update |
-| Calendar Sync (18 properties) | < 60 seconds | Full 365-day calendar sync |
+| Calendar Sync (per portfolio) | < 60 seconds | Full 365-day calendar sync |
 | Webhook Processing | < 5 seconds | Event received to processing start |
 | API Rate Limit Safety | > 20% buffer | Remaining capacity before throttling |
 | Financial Data Accuracy | 100% | Invoice line items match API |

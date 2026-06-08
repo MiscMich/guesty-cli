@@ -7,6 +7,7 @@ import json
 import os
 import ssl
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,25 @@ from .config import (
     load_config,
     update_token_cache,
 )
+
+
+def build_multipart_body(field_name: str, filename: str, file_bytes: bytes,
+                         content_type: str = "application/octet-stream"):
+    """Build a multipart/form-data request body for a single file field.
+
+    Returns (body_bytes, content_type_header). Uses a random boundary so the
+    delimiter can never collide with the file contents.
+    """
+    boundary = "----guestycli" + uuid.uuid4().hex
+    crlf = b"\r\n"
+    parts = [
+        b"--" + boundary.encode() + crlf,
+        ('Content-Disposition: form-data; name="%s"; filename="%s"' % (field_name, filename)).encode() + crlf,
+        ("Content-Type: %s" % content_type).encode() + crlf + crlf,
+        file_bytes, crlf,
+        b"--" + boundary.encode() + b"--" + crlf,
+    ]
+    return b"".join(parts), "multipart/form-data; boundary=%s" % boundary
 
 
 class GuestyError(Exception):
@@ -98,6 +118,8 @@ class GuestyClient:
         headers: dict = None,
         auth: bool = True,
         retry_on_429: bool = True,
+        raw_body: bytes = None,
+        timeout: int = 30,
     ) -> dict:
         """Make an HTTP request with retry logic.
         
@@ -142,7 +164,11 @@ class GuestyClient:
             
             # Encode data
             body = None
-            if data:
+            if raw_body is not None:
+                # Caller supplied a pre-built body (e.g. multipart upload) and
+                # set its own Content-Type header — don't touch either.
+                body = raw_body
+            elif data:
                 if req_headers.get("Content-Type") == "application/x-www-form-urlencoded":
                     body = urlencode(data).encode("utf-8")
                 else:
@@ -152,7 +178,7 @@ class GuestyClient:
             req = Request(url, data=body, headers=req_headers, method=method)
             
             try:
-                with urlopen(req, context=self.ssl_context, timeout=30) as response:
+                with urlopen(req, context=self.ssl_context, timeout=timeout) as response:
                     self._update_rate_limits(dict(response.headers))
                     
                     # Handle empty responses (204 No Content)
@@ -498,7 +524,32 @@ class GuestyClient:
         url = self._get_api_url(path)
         response = self._make_request("DELETE", url)
         return response if isinstance(response, dict) else {}
-    
+
+    def upload_photo(self, listing_id: str, file_path: str, timeout: int = 120) -> dict:
+        """Upload a single photo to a listing via multipart/form-data.
+
+        Returns the raw API response dict (``{"success": True, "data": [...]}``).
+
+        IMPORTANT: ``data[0]`` is NOT reliably the photo you just uploaded —
+        Guesty echoes the photo at index 0 (the cover). To find the uploaded
+        photo's id, re-list and match the filename embedded in ``source``.
+        """
+        import mimetypes
+
+        path = str(file_path)
+        with open(path, "rb") as fh:
+            file_bytes = fh.read()
+        filename = os.path.basename(path)
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        body, ct_header = build_multipart_body("file", filename, file_bytes, content_type)
+        url = self._get_api_url(
+            f"properties-api/property-photos/property-photos/{listing_id}/upload/blob"
+        )
+        return self._make_request(
+            "POST", url, headers={"Content-Type": ct_header},
+            raw_body=body, timeout=timeout,
+        )
+
     def api_get_all(self, path: str, params: dict = None, limit: int = 100, max_pages: int = 1000) -> list:
         """Get all records from a paginated endpoint.
 

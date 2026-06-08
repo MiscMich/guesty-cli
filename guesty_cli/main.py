@@ -67,6 +67,7 @@ def main():
         ('auth', 'Authentication and setup'),
         ('status', 'Dashboard overview'),
         ('listings', 'Property management'),
+        ('photos', 'Listing photo management (upload, reorder, delete)'),
         ('reservations', 'Reservation management'),
         ('views', 'Guesty built-in reports and views'),
         ('guests', 'Guest profiles'),

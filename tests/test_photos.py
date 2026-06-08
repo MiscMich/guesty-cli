@@ -90,3 +90,20 @@ class TestPhotoHelpers:
         f = tmp_path / "only.jpg"
         f.write_bytes(b"x")
         assert _collect_images([str(f)]) == [str(f)]
+
+    def test_collect_images_empty_for_missing_or_imageless(self, tmp_path):
+        from guesty_cli.commands.photos import _collect_images
+        assert _collect_images([str(tmp_path / "does-not-exist")]) == []
+        (tmp_path / "readme.txt").write_bytes(b"x")
+        assert _collect_images([str(tmp_path)]) == []
+
+    def test_order_by_source_name(self):
+        # Highest-risk path: ordering is computed from the photos' source
+        # filenames (natural sort), NOT the upload response's data[0].
+        from guesty_cli.commands.photos import _order_by_source_name
+        photos = [
+            {"_id": "c", "source": "https://assets/x/Home-10-aaaa"},
+            {"_id": "a", "source": "https://assets/x/Home-2-bbbb"},
+            {"_id": "b", "source": "https://assets/x/Home-1-cccc"},
+        ]
+        assert _order_by_source_name(photos) == ["b", "a", "c"]

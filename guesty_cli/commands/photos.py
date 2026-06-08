@@ -35,7 +35,7 @@ def register(subparsers):
     up.add_argument("listing", help="Listing ID or nickname")
     up.add_argument("paths", nargs="+", help="Image file(s) or a directory of images")
     up.add_argument("--order-by-name", action="store_true",
-                    help="After upload, set photo order by filename (natural sort, first = cover)")
+                    help="After upload, reorder ALL photos on the listing by filename (natural sort; first = cover)")
     up.add_argument("--retries", type=int, default=4,
                     help="Retries per file on transient failure (default: 4)")
     up.add_argument("--delay", type=float, default=0.4,
@@ -49,6 +49,7 @@ def register(subparsers):
     order_parser.add_argument("listing", help="Listing ID or nickname")
     order_parser.add_argument("ids", nargs="+",
                               help="Photo IDs in desired order (comma- or space-separated; first = cover)")
+    order_parser.add_argument("--json", action="store_true", help="Output as JSON")
     order_parser.set_defaults(func=run_order)
 
     del_parser = sub.add_parser("delete", help="Delete photo(s) by ID")
@@ -56,6 +57,7 @@ def register(subparsers):
     del_parser.add_argument("ids", nargs="+", help="Photo ID(s) to delete (comma- or space-separated)")
     del_parser.add_argument("--force", "-y", action="store_true", help="Skip confirmation")
     del_parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted")
+    del_parser.add_argument("--json", action="store_true", help="Output as JSON")
     del_parser.set_defaults(func=run_delete)
 
 
@@ -123,6 +125,12 @@ def _list_photos(client, listing_id):
     return resp if isinstance(resp, list) else []
 
 
+def _order_by_source_name(photos):
+    """Photo IDs ordered by the natural sort of their source filename."""
+    ordered = sorted(photos, key=lambda p: _natural_key(_source_name(p.get("source", ""))))
+    return [p["_id"] for p in ordered]
+
+
 def _flatten_ids(raw_ids):
     out = []
     for chunk in raw_ids:
@@ -180,10 +188,13 @@ def run_upload(args):
         return
 
     as_json = getattr(args, "json", False)
+    missing = [p for p in args.paths if not os.path.exists(p)]
     if not as_json:
         print()
         print(bold(f"Upload to: {nickname or listing_id}"))
         print(f"  Files: {len(files)}")
+        if missing:
+            print(yellow(f"  Skipping {len(missing)} path(s) that don't exist: {', '.join(missing)}"))
 
     if args.dry_run:
         if as_json:
@@ -217,16 +228,12 @@ def run_upload(args):
             uploaded.append(name)
             if not as_json:
                 print(f"  {green('✓')} {i}/{len(files)} {name}")
-        time.sleep(args.delay)
+            time.sleep(args.delay)  # pace between successes; failures already backed off
 
     photos = _list_photos(client, listing_id)
     ordered = False
     if args.order_by_name and not failed:
-        order_ids = [
-            p["_id"] for p in sorted(
-                photos, key=lambda p: _natural_key(_source_name(p.get("source", "")))
-            )
-        ]
+        order_ids = _order_by_source_name(photos)
         try:
             client.api_post(_PHOTOS_PATH.format(lid=listing_id) + "/order", {"order": order_ids})
             ordered = True
@@ -249,7 +256,7 @@ def run_upload(args):
           f"Failed: {red(len(failed)) if failed else 0}  |  "
           f"Total photos now: {len(photos)}")
     if ordered:
-        print(green("  ✓ Photo order set by filename"))
+        print(green(f"  ✓ Reordered all {len(photos)} photos on the listing by filename"))
     if failed:
         print(yellow("  Failed (re-run the same command to retry just these):"))
         for name, err in failed:
@@ -276,6 +283,9 @@ def run_order(args):
     except Exception as e:
         print(red(f"Error setting order: {e}"))
         return
+    if getattr(args, "json", False):
+        print_json({"listing": listing_id, "ordered": len(ids), "cover": ids[0]})
+        return
     print(green(f"✓ Order set on '{nickname or listing_id}' "
                 f"({len(ids)} photos; cover = {ids[0]})"))
 
@@ -295,14 +305,18 @@ def run_delete(args):
         print(red("No photo IDs provided."))
         return
 
+    as_json = getattr(args, "json", False)
     if args.dry_run:
-        print(cyan(f"[DRY RUN] Would delete {len(ids)} photo(s) from '{nickname or listing_id}':"))
-        for pid in ids:
-            print(f"  • {pid}")
+        if as_json:
+            print_json({"would_delete": ids})
+        else:
+            print(cyan(f"[DRY RUN] Would delete {len(ids)} photo(s) from '{nickname or listing_id}':"))
+            for pid in ids:
+                print(f"  • {pid}")
         return
 
     if not args.force:
-        if getattr(args, "no_input", False):
+        if os.environ.get("GUESTY_NO_INPUT") or getattr(args, "no_input", False):
             print(red("Refusing to delete without --force in non-interactive mode."))
             return
         answer = input(f"Delete {len(ids)} photo(s) from '{nickname or listing_id}'? [y/N] ")
@@ -312,11 +326,19 @@ def run_delete(args):
 
     client = GuestyClient(config)
     deleted = 0
+    results = []
     for pid in ids:
         try:
             client.api_delete(_PHOTOS_PATH.format(lid=listing_id) + f"/{pid}")
             deleted += 1
-            print(f"  {green('✓')} deleted {pid}")
+            results.append({"id": pid, "deleted": True})
+            if not as_json:
+                print(f"  {green('✓')} deleted {pid}")
         except Exception as e:
-            print(f"  {red('✗')} {pid} — {e}")
-    print(bold(f"Deleted {deleted}/{len(ids)} photo(s)."))
+            results.append({"id": pid, "deleted": False, "error": str(e)})
+            if not as_json:
+                print(f"  {red('✗')} {pid} — {e}")
+    if as_json:
+        print_json({"deleted": deleted, "total": len(ids), "results": results})
+    else:
+        print(bold(f"Deleted {deleted}/{len(ids)} photo(s)."))

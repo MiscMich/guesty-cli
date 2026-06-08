@@ -179,7 +179,7 @@ guesty completion bash     # Shell completions (also zsh, fish)
 | Command | Description | Options |
 |---------|-------------|---------|
 | `guesty photos list <listing> [--json]` | List a listing's photos (index, id, source, caption) | Index 0 is the cover |
-| `guesty photos upload <listing> <file-or-dir...> [--order-by-name] [--retries N] [--delay S] [--dry-run] [--json]` | Upload photo(s); accepts files or a directory | Sequential + retry; `--order-by-name` sets order by filename (natural sort) |
+| `guesty photos upload <listing> <file-or-dir...> [--order-by-name] [--retries N] [--delay S] [--dry-run] [--json]` | Upload photo(s); accepts files or a directory | Sequential + retry. `--order-by-name` reorders **all** photos on the listing by filename (natural sort) |
 | `guesty photos order <listing> <id...>` | Set display order (first id = cover) | IDs comma- or space-separated |
 | `guesty photos delete <listing> <id...> [--force] [--dry-run]` | Delete photo(s) by id | Prompts unless `--force` |
 

@@ -174,6 +174,17 @@ guesty completion bash     # Shell completions (also zsh, fish)
 | `guesty listing update <id_or_nickname> [--title X] [--nickname X] [--address X] [--city X] [--dry-run]` | Update listing | |
 | `guesty listing delete <id_or_nickname> --confirm` | Delete listing | Requires confirmation |
 
+### Photo Management
+
+| Command | Description | Options |
+|---------|-------------|---------|
+| `guesty photos list <listing> [--json]` | List a listing's photos (index, id, source, caption) | Index 0 is the cover |
+| `guesty photos upload <listing> <file-or-dir...> [--order-by-name] [--retries N] [--delay S] [--dry-run] [--json]` | Upload photo(s); accepts files or a directory | Sequential + retry. `--order-by-name` reorders **all** photos on the listing by filename (natural sort) |
+| `guesty photos order <listing> <id...>` | Set display order (first id = cover) | IDs comma- or space-separated |
+| `guesty photos delete <listing> <id...> [--force] [--dry-run]` | Delete photo(s) by id | Prompts unless `--force` |
+
+> Photos upload via multipart/form-data. Uploads are sent one at a time with a small delay because firing them back-to-back triggers transient connection resets on Guesty's side; failed files are reported and can be re-run. To identify an uploaded photo, match the filename embedded in its `source` URL — the upload response's `data[0]` echoes the **cover** (index 0), not the photo you just added.
+
 ### Reservations
 
 | Command | Description | Options |

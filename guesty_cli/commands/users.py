@@ -180,9 +180,9 @@ def run_get(args):
             
             # Get tasks assigned to this user
             cursor = db.execute(
-                """SELECT * FROM tasks 
-                   WHERE assignee = ? 
-                   ORDER BY createdAt DESC""",
+                """SELECT * FROM tasks
+                   WHERE assigned_to = ?
+                   ORDER BY created_at DESC""",
                 (user_id,)
             )
             tasks = [dict(r) for r in cursor.fetchall()]

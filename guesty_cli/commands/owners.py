@@ -1,4 +1,5 @@
 """Owners management commands for guesty-cli."""
+import json
 from guesty_cli.core.config import load_config
 from guesty_cli.core.database import get_db
 from guesty_cli.core.client import GuestyClient
@@ -197,21 +198,33 @@ def run_get(args):
             owner = dict(row)
             owner_id = owner.get('id')
             
-            # Get properties (listings owned by this owner)
-            cursor = db.execute(
-                "SELECT * FROM listings WHERE id IN (SELECT listingId FROM owner_listings WHERE ownerId = ?)",
-                (owner_id,)
-            )
-            properties = [dict(r) for r in cursor.fetchall()]
+            # Get properties (listings owned by this owner). The owner -> listing
+            # mapping is only available in the owner's raw payload; there is no
+            # owner_listings join table.
+            owned_ids = []
+            try:
+                owned_ids = json.loads(owner.get('raw_data') or '{}').get('listings') or []
+            except (ValueError, AttributeError):
+                owned_ids = []
+
+            if owned_ids:
+                placeholders = ','.join('?' * len(owned_ids))
+                cursor = db.execute(
+                    f"SELECT * FROM listings WHERE id IN ({placeholders})",
+                    tuple(owned_ids)
+                )
+                properties = [dict(r) for r in cursor.fetchall()]
+            else:
+                properties = []
             
             # Get recent reservations for owner's properties
             listing_ids = [p.get('id') for p in properties]
             if listing_ids:
                 placeholders = ','.join('?' * len(listing_ids))
                 cursor = db.execute(
-                    f"""SELECT * FROM reservations 
-                       WHERE listingId IN ({placeholders})
-                       ORDER BY checkIn DESC LIMIT 10""",
+                    f"""SELECT * FROM reservations
+                       WHERE listing_id IN ({placeholders})
+                       ORDER BY check_in DESC LIMIT 10""",
                     tuple(listing_ids)
                 )
                 reservations = [dict(r) for r in cursor.fetchall()]
@@ -491,20 +504,20 @@ def run_owner_reservations(args):
             query = f"""
                 SELECT r.*, l.nickname as listing_nickname
                 FROM reservations r
-                LEFT JOIN listings l ON r.listingId = l.id
-                WHERE r.listingId IN ({placeholders})
+                LEFT JOIN listings l ON r.listing_id = l.id
+                WHERE r.listing_id IN ({placeholders})
             """
             params = list(owner_listing_ids)
 
             # Add date filtering
             if args.from_date:
-                query += " AND r.checkIn >= ?"
+                query += " AND r.check_in >= ?"
                 params.append(args.from_date)
             if args.to_date:
-                query += " AND r.checkOut <= ?"
+                query += " AND r.check_out <= ?"
                 params.append(args.to_date)
 
-            query += " ORDER BY r.checkIn DESC"
+            query += " ORDER BY r.check_in DESC"
 
             cursor = db.execute(query, params)
             reservations = [dict(row) for row in cursor.fetchall()]

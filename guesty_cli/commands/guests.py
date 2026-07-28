@@ -6,7 +6,7 @@ from guesty_cli.core.database import get_db
 from guesty_cli.core.client import GuestyClient
 from guesty_cli.core.output import (
     print_table, print_card, print_json, print_csv,
-    bold, cyan, green, red, yellow
+    bold, cyan, green, red, yellow, format_money
 )
 
 
@@ -153,9 +153,9 @@ def run_get(args):
             
             # Get reservation history
             cursor = db.execute(
-                """SELECT * FROM reservations 
-                   WHERE guestId = ? 
-                   ORDER BY checkIn DESC""",
+                """SELECT * FROM reservations
+                   WHERE guest_id = ?
+                   ORDER BY check_in DESC""",
                 (guest.get('id'),)
             )
             reservations = [dict(r) for r in cursor.fetchall()]
@@ -193,13 +193,13 @@ def run_get(args):
         rows = []
         total_spent = 0
         for r in reservations:
-            amount = r.get('totalPrice', 0) or 0
+            amount = r.get('total_price', 0) or 0
             total_spent += amount
             rows.append([
-                r.get('confirmationCode', 'N/A'),
-                r.get('listingId', 'N/A')[:20],
-                r.get('checkIn', 'N/A')[:10] if r.get('checkIn') else 'N/A',
-                r.get('nightsCount', 'N/A'),
+                r.get('confirmation_code', 'N/A'),
+                (r.get('listing_id') or 'N/A')[:20],
+                r.get('check_in', 'N/A')[:10] if r.get('check_in') else 'N/A',
+                r.get('nights', 'N/A'),
                 r.get('status', 'N/A'),
                 format_money(amount, r.get('currency', 'USD')),
             ])

@@ -21,7 +21,7 @@ def register(subparsers):
         help='Sync data from Guesty API to local database'
     )
     parser.set_defaults(func=run_sync)
-    parser.add_argument('endpoint', nargs='?', help='Endpoint to sync (listings, reservations, guests, owners, reviews, tasks, financials, webhooks) or "full"')
+    parser.add_argument('endpoint', nargs='?', help='Endpoint to sync (listings, reservations, guests, owners, reviews, tasks, webhooks) or "full"')
     parser.add_argument('--full', action='store_true', help='Full sync of all endpoints (clears and re-fetches all data)')
     parser.add_argument('--incremental', '-i', action='store_true', help='Only sync records changed since last successful sync')
     parser.add_argument('--since', type=str, metavar='TIMESTAMP', help='Sync records updated since specific ISO timestamp (e.g., "2024-02-01T00:00:00Z")')
@@ -130,7 +130,6 @@ def run_sync(args):
         'users': {'path': 'users', 'table': 'users', 'incremental': True},
         'reviews': {'path': 'reviews', 'table': 'reviews', 'incremental': True},
         'tasks': {'path': 'tasks', 'table': 'tasks', 'incremental': True},
-        'financials': {'path': 'finance/invoices', 'table': 'financials', 'incremental': False},
         'webhooks': {'path': 'webhooks', 'table': 'webhooks', 'incremental': False},
     }
     
@@ -738,7 +737,7 @@ def _map_record_to_db(record, table, existing_cols, dry_run=False):
 
 def show_sync_status():
     """Show last sync status for all endpoints."""
-    endpoints = ['listings', 'reservations', 'guests', 'owners', 'users', 'reviews', 'tasks', 'financials', 'webhooks']
+    endpoints = ['listings', 'reservations', 'guests', 'owners', 'users', 'reviews', 'tasks', 'webhooks']
     
     db = get_db()
     

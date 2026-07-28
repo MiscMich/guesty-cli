@@ -1,6 +1,7 @@
 """
 Status dashboard command for guesty-cli.
 """
+import sqlite3
 from datetime import datetime, timedelta
 from guesty_cli import __version__
 from guesty_cli.core.config import load_config
@@ -68,10 +69,16 @@ def run(args):
     # Token status
     token_status = {'valid': False, 'hours_remaining': 0}
     try:
-        # Check auth_tokens table first
-        cursor = db.execute("SELECT token, expires_at FROM auth_tokens ORDER BY created_at DESC LIMIT 1")
-        token_row = cursor.fetchone()
-        
+        # Check auth_tokens table first. It is optional — older databases (and any
+        # created by init_db) have no such table, in which case fall through to the
+        # token cached in config rather than reporting the token as invalid.
+        token_row = None
+        try:
+            cursor = db.execute("SELECT token, expires_at FROM auth_tokens ORDER BY created_at DESC LIMIT 1")
+            token_row = cursor.fetchone()
+        except sqlite3.Error:
+            pass
+
         if token_row:
             expires_at = token_row[1]
             if expires_at:
@@ -91,8 +98,8 @@ def run(args):
         if not token_status['valid']:
             client = GuestyClient(config)
             expires_at = config.get('token_expires_at')
-            cached_token = config.get('cached_token')
-            
+            cached_token = config.get('token')
+
             if cached_token and expires_at:
                 try:
                     expires = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
@@ -113,19 +120,20 @@ def run(args):
     today = datetime.now().strftime('%Y-%m-%d')
     today_stats = {'checkins': 0, 'checkouts': 0}
     try:
-        # Match on date part of checkIn
+        # Match on the date part of check_in/check_out, which are stored as full
+        # ISO timestamps (2026-07-28T20:00:00.000Z).
         cursor = db.execute(
-            "SELECT COUNT(*) FROM reservations WHERE checkIn LIKE ? AND status = 'confirmed'",
+            "SELECT COUNT(*) FROM reservations WHERE check_in LIKE ? AND status = 'confirmed'",
             (f'{today}%',)
         )
         today_stats['checkins'] = cursor.fetchone()[0]
-        
+
         cursor = db.execute(
-            "SELECT COUNT(*) FROM reservations WHERE checkOut LIKE ? AND status = 'confirmed'",
+            "SELECT COUNT(*) FROM reservations WHERE check_out LIKE ? AND status = 'confirmed'",
             (f'{today}%',)
         )
         today_stats['checkouts'] = cursor.fetchone()[0]
-    except Exception as e:
+    except sqlite3.Error:
         pass
     status_data['today_stats'] = today_stats
     

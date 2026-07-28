@@ -70,10 +70,10 @@ def _get_reviewer_name_from_row(row, db=None):
             guest_id = raw.get('guestId')
             if guest_id and db:
                 try:
-                    cursor = db.execute("SELECT fullName FROM guests WHERE id = ?", (guest_id,))
+                    cursor = db.execute("SELECT full_name FROM guests WHERE id = ?", (guest_id,))
                     guest_row = cursor.fetchone()
                     if guest_row:
-                        return guest_row['fullName']
+                        return guest_row['full_name']
                 except:
                     pass
         except (json.JSONDecodeError, AttributeError):
@@ -232,9 +232,9 @@ def run_list(args):
                     if guest_id:
                         if guest_id not in guest_cache:
                             try:
-                                cursor = db.execute("SELECT fullName FROM guests WHERE id = ?", (guest_id,))
+                                cursor = db.execute("SELECT full_name FROM guests WHERE id = ?", (guest_id,))
                                 guest_row = cursor.fetchone()
-                                guest_cache[guest_id] = guest_row['fullName'] if guest_row else None
+                                guest_cache[guest_id] = guest_row['full_name'] if guest_row else None
                             except:
                                 guest_cache[guest_id] = None
                         if guest_cache[guest_id]:

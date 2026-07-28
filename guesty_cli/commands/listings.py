@@ -3,6 +3,7 @@ Listings management commands for guesty-cli.
 """
 import argparse
 import json
+import sqlite3
 from guesty_cli.core.config import load_config
 from guesty_cli.core.database import get_db
 from guesty_cli.core.client import GuestyClient
@@ -681,28 +682,27 @@ def run_get(args):
             today = datetime.now().strftime('%Y-%m-%d')
             cursor = db.execute(
                 """SELECT r.*,
-                          g.fullName as guest_fullName,
-                          g.firstName as guest_firstName,
-                          g.lastName as guest_lastName
+                          g.full_name as guest_fullName,
+                          g.first_name as guest_firstName,
+                          g.last_name as guest_lastName
                    FROM reservations r
-                   LEFT JOIN guests g ON r.guestId = g.id
-                   WHERE r.listingId = ? AND r.checkIn >= ? AND r.status = 'confirmed'
-                   ORDER BY r.checkIn LIMIT 5""",
+                   LEFT JOIN guests g ON r.guest_id = g.id
+                   WHERE r.listing_id = ? AND r.check_in >= ? AND r.status = 'confirmed'
+                   ORDER BY r.check_in LIMIT 5""",
                 (listing_id, today)
             )
             upcoming_reservations = [dict(r) for r in cursor.fetchall()]
 
             cursor = db.execute(
-                "SELECT * FROM reviews WHERE listingId = ? ORDER BY createdAt DESC LIMIT 5",
+                "SELECT * FROM reviews WHERE listing_id = ? ORDER BY created_at DESC LIMIT 5",
                 (listing_id,)
             )
             recent_reviews = [dict(r) for r in cursor.fetchall()]
 
             cursor = db.execute(
-                """SELECT SUM(f.amount) as total
-                   FROM financials f
-                   JOIN reservations r ON f.reservationId = r.id
-                   WHERE r.listingId = ? AND f.lineType = 'income'""",
+                """SELECT SUM(r.total_price) as total
+                   FROM reservations r
+                   WHERE r.listing_id = ? AND r.status = 'confirmed'""",
                 (listing_id,)
             )
             row = cursor.fetchone()
@@ -780,20 +780,20 @@ def run_get(args):
         rows = []
         for r in recent_reviews:
             rating = r.get('rating', 0) or 0
-            if not rating and r.get('raw_json') or r.get('raw_data'):
+            if not rating and r.get('raw_data'):
                 try:
-                    raw = json.loads(r['raw_json'])
+                    raw = json.loads(r['raw_data'])
                     raw_review = raw.get('rawReview', {})
                     if raw_review:
                         rating = raw_review.get('overall_rating', 0)
-                except:
+                except (ValueError, TypeError):
                     pass
             stars = '★' * int(rating) + '☆' * (5 - int(rating))
 
-            reviewer_name = r.get('reviewerName')
-            if not reviewer_name and r.get('raw_json') or r.get('raw_data'):
+            reviewer_name = r.get('reviewer_name')
+            if not reviewer_name and r.get('raw_data'):
                 try:
-                    raw = json.loads(r['raw_json'])
+                    raw = json.loads(r['raw_data'])
                     raw_review = raw.get('rawReview', {})
                     if raw_review:
                         reviewer_name = raw_review.get('guest_name')
@@ -801,14 +801,21 @@ def run_get(args):
                         guest = raw.get('guest', {})
                         if guest:
                             reviewer_name = guest.get('fullName')
-                except:
+                    # Reviews carry only a guestId; resolve the name from guests.
+                    if not reviewer_name and raw.get('guestId'):
+                        guest_row = db.execute(
+                            "SELECT full_name FROM guests WHERE id = ?", (raw['guestId'],)
+                        ).fetchone()
+                        if guest_row:
+                            reviewer_name = guest_row['full_name']
+                except (ValueError, TypeError, sqlite3.Error):
                     pass
 
             rows.append([
                 reviewer_name or 'Anonymous',
                 f"{stars} ({rating})",
                 r.get('platform', 'N/A'),
-                r.get('createdAt', 'N/A')[:10] if r.get('createdAt') else 'N/A',
+                r.get('created_at', 'N/A')[:10] if r.get('created_at') else 'N/A',
             ])
         print_table(headers, rows)
 

@@ -57,7 +57,7 @@ def _rebuild_fts_index(db):
         
         # Index guests (names, email, phone)
         try:
-            cursor = db.execute("SELECT id, firstName, lastName, fullName, email, phone FROM guests")
+            cursor = db.execute("SELECT id, first_name, last_name, full_name, email, phone FROM guests")
             for row in cursor.fetchall():
                 content = ' '.join(str(v) for v in row[1:] if v)
                 db.execute(
@@ -69,7 +69,7 @@ def _rebuild_fts_index(db):
         
         # Index reservations (confirmation code, guest names)
         try:
-            cursor = db.execute("SELECT id, confirmationCode, guestName, guestEmail FROM reservations")
+            cursor = db.execute("SELECT id, confirmation_code, guest_name, guest_email FROM reservations")
             for row in cursor.fetchall():
                 content = ' '.join(str(v) for v in row[1:] if v)
                 db.execute(
@@ -81,7 +81,7 @@ def _rebuild_fts_index(db):
         
         # Index reviews (content)
         try:
-            cursor = db.execute("SELECT id, content, reviewerName FROM reviews")
+            cursor = db.execute("SELECT id, comment, reviewer_name FROM reviews")
             for row in cursor.fetchall():
                 content = ' '.join(str(v) for v in row[1:] if v)
                 db.execute(

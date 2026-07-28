@@ -36,6 +36,26 @@ TAX_RATES = {
 }
 
 
+def _enrich_invoice_row(row):
+    """Surface Guesty's own invoice-item field names as top-level keys.
+
+    invoice_items stores normalType/lineType only inside the raw_data payload, and
+    ids in snake_case columns. The reports below key off the Guesty names, so
+    without this every line item categorizes as 'unknown' and the revenue, tax and
+    DR-15 breakdowns silently come out as zero.
+    """
+    try:
+        raw = json.loads(row.get('raw_data') or '{}')
+    except (ValueError, TypeError):
+        raw = {}
+
+    row['normalType'] = raw.get('normalType') or ''
+    row['lineType'] = row.get('type') or raw.get('type') or ''
+    row['listingId'] = row.get('listing_id') or raw.get('listing_id') or ''
+    row['reservationId'] = row.get('reservation_id') or raw.get('reservation_id') or ''
+    return row
+
+
 def _get_listing_county(listing_city):
     """Determine county based on listing city."""
     if not listing_city:
@@ -61,14 +81,14 @@ def _get_listing_county(listing_city):
 def _get_owner_for_listing(db, listing_id):
     """Get owner information for a listing."""
     cursor = db.execute("""
-        SELECT o.id, o.fullName, o.email
+        SELECT o.id, o.full_name, o.email
         FROM owners o
-        WHERE o.raw_json LIKE ?
+        WHERE o.raw_data LIKE ?
     """, (f'%"{listing_id}"%',))
-    
+
     row = cursor.fetchone()
     if row:
-        return {'id': row['id'], 'name': row['fullName'], 'email': row['email']}
+        return {'id': row['id'], 'name': row['full_name'], 'email': row['email']}
     return None
 
 
@@ -168,7 +188,7 @@ def run_revenue(args):
     
     try:
         cursor = db.execute(query, params)
-        financials = [dict(row) for row in cursor.fetchall()]
+        financials = [_enrich_invoice_row(dict(row)) for row in cursor.fetchall()]
     except Exception as e:
         print(red(f"Error querying database: {e}"))
         return
@@ -399,7 +419,7 @@ def run_taxes(args):
     
     try:
         cursor = db.execute(query, params)
-        financials = [dict(row) for row in cursor.fetchall()]
+        financials = [_enrich_invoice_row(dict(row)) for row in cursor.fetchall()]
     except Exception as e:
         print(red(f"Error querying database: {e}"))
         return
@@ -554,7 +574,7 @@ def run_dr15(args):
     
     try:
         cursor = db.execute(query, [start_date, end_date])
-        financials = [dict(row) for row in cursor.fetchall()]
+        financials = [_enrich_invoice_row(dict(row)) for row in cursor.fetchall()]
     except Exception as e:
         print(red(f"Error querying database: {e}"))
         return
@@ -742,7 +762,7 @@ def run_summary(args):
         params.append(f'%{args.listing}%')
         params.append(args.listing)
     if args.type:
-        query += " AND f.lineType = ?"
+        query += " AND f.type = ?"
         params.append(args.type)
     if args.from_date:
         query += " AND f.created_at >= ?"
@@ -753,7 +773,7 @@ def run_summary(args):
     
     try:
         cursor = db.execute(query, params)
-        financials = [dict(row) for row in cursor.fetchall()]
+        financials = [_enrich_invoice_row(dict(row)) for row in cursor.fetchall()]
     except Exception as e:
         print(red(f"Error querying database: {e}"))
         return

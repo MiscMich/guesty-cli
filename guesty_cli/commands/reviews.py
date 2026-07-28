@@ -111,17 +111,18 @@ def _get_platform_from_row(row):
 
 def _get_content_from_row(row):
     """Extract review content from row."""
-    # Try direct column
-    content = row.get('content')
+    # Try direct column. The review body is stored in `comment`.
+    content = row.get('comment') or row.get('content')
     if content:
         return content
-    
+
     # Try parsing from raw_json
     raw_json = row.get('raw_json') or row.get('raw_data')
     if raw_json:
         try:
             raw = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
-            content = raw.get('publicReview') or raw.get('review')
+            content = ((raw.get('rawReview') or {}).get('public_review')
+                       or raw.get('publicReview') or raw.get('review'))
             if content:
                 return content
             # Try raw_review

@@ -1,5 +1,7 @@
 """Data synchronization commands for guesty-cli."""
 import json
+import re
+import sqlite3
 import time
 from datetime import datetime, timezone
 from guesty_cli.core.config import load_config
@@ -365,10 +367,12 @@ def run_sync(args):
                 'duration': duration
             })
     
+    _backfill_reviewer_names(db)
+
     print()
     total_duration = time.time() - overall_start_time
     total_records = sum(r['records'] for r in results)
-    
+
     print(green(f"Sync complete! {total_records} records in {total_duration:.1f}s"))
     
     # Print summary table
@@ -418,10 +422,36 @@ def _fetch_endpoint_data(client, endpoint, info, params):
     return records
 
 
+def _backfill_reviewer_names(db):
+    """Fill reviews.reviewer_name from the guests table.
+
+    Guesty review payloads carry only a guestId — there is no reviewer object and
+    no name field — so the name has to be resolved locally. Guests are synced
+    before reviews, so this runs once at the end of a sync.
+    """
+    try:
+        db.execute("""
+            UPDATE reviews
+               SET reviewer_name = (
+                     SELECT g.full_name FROM guests g WHERE g.id = reviews.guest_id
+                   )
+             WHERE (reviewer_name IS NULL OR reviewer_name = '')
+               AND guest_id IS NOT NULL
+        """)
+        db.commit()
+    except sqlite3.Error:
+        pass
+
+
+def _snake_case(name):
+    """camelCase -> snake_case (createdAt -> created_at)."""
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+
+
 def _map_record_to_db(record, table, existing_cols, dry_run=False):
     """Map a Guesty API record to existing DB columns."""
     import json
-    
+
     row = {}
     rid = record.get('_id') or record.get('id')
     if not rid:
@@ -434,16 +464,23 @@ def _map_record_to_db(record, table, existing_cols, dry_run=False):
     elif 'raw_data' in existing_cols:
         row['raw_data'] = json.dumps(record)
     
-    # Direct match: any key that exists as a column
+    # Direct match: any key that exists as a column. The API is camelCase and the
+    # schema is snake_case, so fall back to the converted name (createdAt ->
+    # created_at) rather than dropping the value.
     for key, value in record.items():
         if key == '_id':
             continue
-        if key in existing_cols:
+        col = key if key in existing_cols else _snake_case(key)
+        if col in existing_cols:
             if isinstance(value, (dict, list)):
-                row[key] = json.dumps(value)
+                row[col] = json.dumps(value)
             else:
-                row[key] = value
-    
+                row[col] = value
+
+    # Guesty reports the last modification as lastUpdatedAt on most resources.
+    if 'updated_at' in existing_cols and not row.get('updated_at'):
+        row['updated_at'] = record.get('lastUpdatedAt') or record.get('updatedAt')
+
     # Special mappings per table
     if table == 'listings':
         addr = record.get('address', {})
@@ -472,8 +509,16 @@ def _map_record_to_db(record, table, existing_cols, dry_run=False):
         if 'created_at' in existing_cols:
             row['created_at'] = record.get('createdAt')
         if 'updated_at' in existing_cols:
-            row['updated_at'] = record.get('updatedAt')
-    
+            row['updated_at'] = record.get('lastUpdatedAt') or record.get('updatedAt')
+
+        # Nightly rate and currency live under the nested prices object.
+        prices = record.get('prices') or {}
+        if isinstance(prices, dict):
+            if 'base_price' in existing_cols:
+                row['base_price'] = prices.get('basePrice')
+            if 'currency' in existing_cols:
+                row['currency'] = prices.get('currency')
+
     elif table == 'reservations':
         # Initialize lists for invoice items and taxes
         invoice_items = []
@@ -655,6 +700,10 @@ def _map_record_to_db(record, table, existing_cols, dry_run=False):
         if isinstance(raw_review, dict):
             if 'rating' in existing_cols:
                 row['rating'] = raw_review.get('overall_rating')
+            # The review body column is `comment`; writing it to `content` meant
+            # review text was never stored and never indexed for search.
+            if 'comment' in existing_cols:
+                row['comment'] = raw_review.get('public_review')
             if 'content' in existing_cols:
                 row['content'] = raw_review.get('public_review')
             if 'response' in existing_cols:

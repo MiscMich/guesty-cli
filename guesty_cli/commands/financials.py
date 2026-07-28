@@ -7,6 +7,7 @@ Commands:
   guesty financials dr15 --month 2024-01
 """
 import argparse
+import calendar
 import json
 from datetime import datetime
 from collections import defaultdict
@@ -543,17 +544,15 @@ def run_dr15(args):
         else:
             end_date = f"{year}-{int(month)+1:02d}-01"
         
-        # Format for DR-15 (MM/DD/YYYY)
+        # Format for DR-15 (MM/DD/YYYY). Use the real last day of the month:
+        # hardcoding 30 mislabelled every 31-day month, and 02/28 was wrong in
+        # leap years. The queried window is already correct; this is the period
+        # printed on the filing.
         dr15_period_start = f"{month}/01/{year}"
-        month_int = int(month)
-        if month == '12':
-            dr15_period_end = f"12/31/{year}"
-        elif month == '02':
-            dr15_period_end = f"02/28/{year}"
-        else:
-            next_month = month_int + 1
-            dr15_period_end = f"{month}/{30}/{year}"
-            
+        last_day = calendar.monthrange(int(year), int(month))[1]
+        dr15_period_end = f"{month}/{last_day}/{year}"
+
+
     except ValueError:
         print(red("Error: Invalid month format. Use YYYY-MM (e.g., 2024-01)"))
         return

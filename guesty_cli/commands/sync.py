@@ -415,6 +415,13 @@ def _fetch_endpoint_data(client, endpoint, info, params):
         # Request all important fields for reservations including invoice items and taxes
         fields_params = params.copy()
         fields_params['fields'] = 'confirmationCode status source checkIn checkOut checkInDateLocalized checkOutDateLocalized listingId guestId guest.firstName guest.lastName guest.fullName guest.email guest.phone money money.hostPayout money.totalPaid money.balanceDue money.currency money.invoiceItems money.taxes nightsCount guestsCount createdAt confirmedAt updatedAt lastUpdatedAt customFields tags houseRules checkInDetails paymentMethods cancellationPolicy'
+        # Guesty applies a default filter when `filters` is omitted, returning only
+        # upcoming reservations. Sending an explicit empty filter set disables it,
+        # as documented under "How to Search for Reservations".
+        fields_params.setdefault('filters', '[]')
+        # Skip-based pagination needs a stable, unique sort key or pages can drop
+        # or repeat records; Guesty documents sorting by a unique identifier.
+        fields_params.setdefault('sort', '_id')
         records = client.api_get_all(info['path'], fields_params)
     else:
         records = client.api_get_all(info['path'], params)

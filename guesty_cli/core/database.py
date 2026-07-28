@@ -280,10 +280,16 @@ def get_db(config: dict = None) -> sqlite3.Connection:
     
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    
+
     # Disable foreign keys (existing DBs may have data without matching FKs)
     conn.execute("PRAGMA foreign_keys = OFF")
-    
+
+    # Create the schema on first use. Only `guesty init` used to do this, so a
+    # fresh install running any other command first failed with "no such table".
+    # Every statement is CREATE TABLE/INDEX IF NOT EXISTS, so this is a no-op
+    # on an existing database.
+    init_db(conn)
+
     return conn
 
 

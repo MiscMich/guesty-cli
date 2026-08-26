@@ -10,7 +10,7 @@ An independent command-line client for Guesty PMS. Query and synchronize operati
 - Local SQLite cache with FTS5 search
 - JSON, TSV, CSV, and human-readable output
 - OAuth token caching and rate-limit handling
-- Dry-run support and confirmations for mutating commands
+- Safety gates for mutating raw requests: network-free dry runs, confirmation, and fail-closed automation
 - Stable exit codes and non-interactive operation
 - Raw requests to API paths documented by Guesty
 
@@ -62,8 +62,12 @@ guesty --plain reservations list
 guesty calendar block LISTING_ID 2026-09-01 --to 2026-09-03 --reason "Maintenance" --dry-run
 
 # Call a path from Guesty's official API documentation
+# GET executes immediately; the dry run below performs no authentication or network I/O.
 guesty raw GET /v1/listings --params '{"limit": 5}'
+guesty --dry-run raw PATCH /v1/listings/LISTING_ID --data '{"title": "Preview"}'
 ```
+
+Mutating raw methods (`DELETE`, `POST`, `PATCH`, and `PUT`) require either an affirmative interactive confirmation or the global `--force` flag. Use `guesty --force raw ...` only after reviewing the target and payload. In `--no-input`/`GUESTY_NO_INPUT` mode, an unforced mutation exits with an error before authentication or network I/O. For these methods, global `--dry-run` also exits successfully before constructing the API client, fetching a token, or making a request.
 
 Run `guesty --help` and `guesty <command> --help` for the complete command surface.
 

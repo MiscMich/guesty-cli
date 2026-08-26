@@ -7,7 +7,7 @@ name = "guesty-cli"
 version = "0.2.1"
 description = "Universal CLI for Guesty PMS"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Villa Paraiso Vacation Rentals", email = "tech@paraisovacationrentals.com"}
 ]

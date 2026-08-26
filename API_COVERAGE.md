@@ -23,12 +23,13 @@ Use Guesty's official API documentation to identify a supported HTTP method and 
 guesty raw GET /v1/listings --params '{"limit": 5}'
 ```
 
-The project does not bundle a mirror of Guesty's documentation or OpenAPI material. API availability and permissions vary by Guesty account, plan, scope, and platform changes. A path's presence in external documentation does not guarantee that a specific account can use it.
+The current source tree and built packages do not bundle a mirror of Guesty's documentation or OpenAPI material. Earlier public commits in this repository did contain redistributed Guesty documentation; deleting it from the current tree does not erase it from Git history or existing clones. API availability and permissions vary by Guesty account, plan, scope, and platform changes. A path's presence in external documentation does not guarantee that a specific account can use it.
 
 ## Safety and compatibility
 
 - Prefer named commands when available; they provide consistent output and safety checks.
-- Preview mutating operations with `--dry-run` where supported.
+- For raw `DELETE`, `POST`, `PATCH`, and `PUT`, global `--dry-run` exits before authentication/network I/O; execution requires an affirmative prompt or global `--force`.
+- Raw mutations without `--force` fail closed in `--no-input`/`GUESTY_NO_INPUT` mode.
 - Verify changes in Guesty after a successful write.
 - Treat response fields and undocumented behavior as unstable.
 - Never use production credentials in tests or examples.

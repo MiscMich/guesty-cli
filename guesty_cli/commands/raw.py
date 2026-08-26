@@ -22,6 +22,7 @@ from guesty_cli.core.exit_codes import EXIT_SUCCESS, EXIT_ERROR, EXIT_USAGE
 from guesty_cli.core.output import print_header, red, yellow, cyan
 
 VALID_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
+MUTATING_METHODS = frozenset(("POST", "PUT", "PATCH", "DELETE"))
 
 
 def register(subparsers) -> None:
@@ -227,6 +228,31 @@ def run_raw(args) -> None:
     if header_err:
         print(red(header_err), file=sys.stderr)
         sys.exit(EXIT_USAGE)
+
+    if method in MUTATING_METHODS:
+        if getattr(args, "dry_run", False):
+            body_note = f", {len(body)} body bytes" if body is not None else ""
+            params_note = ", with query parameters" if params else ""
+            print(cyan(f"[DRY RUN] Would send {method} {args.path}{body_note}{params_note}."))
+            print(cyan("[DRY RUN] No authentication or network request was attempted."))
+            sys.exit(EXIT_SUCCESS)
+
+        if not getattr(args, "force", False):
+            no_input = getattr(args, "no_input", False) or os.environ.get("GUESTY_NO_INPUT")
+            if no_input:
+                print(
+                    red(f"Refusing raw {method} without --force in non-interactive mode."),
+                    file=sys.stderr,
+                )
+                sys.exit(EXIT_ERROR)
+
+            try:
+                confirmed = input(f"Send raw {method} request to {args.path}? [y/N] ").strip().lower()
+            except EOFError:
+                confirmed = ""
+            if confirmed not in ("y", "yes"):
+                print(red("Raw mutation cancelled; no network request was attempted."), file=sys.stderr)
+                sys.exit(EXIT_ERROR)
 
     client = GuestyClient()
     url = _build_url(client, args.path, params)

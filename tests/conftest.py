@@ -50,6 +50,8 @@ def clean_env():
     env_keys = ['_GUESTY_ACCESS_TOKEN', 'GUESTY_NO_INPUT', 'GUESTY_AUTO_JSON',
                 'GUESTY_CLIENT_ID', 'GUESTY_CLIENT_SECRET', 'GUESTY_DEBUG', 'NO_COLOR']
     original = {k: os.environ.get(k) for k in env_keys}
+    for key in env_keys:
+        os.environ.pop(key, None)
     yield
     for k, v in original.items():
         if v is None:

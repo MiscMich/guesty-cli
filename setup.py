@@ -8,13 +8,8 @@ setup(
     long_description_content_type='text/markdown',
     author='Villa Paraiso Vacation Rentals',
     author_email='tech@paraisovacationrentals.com',
-    url='https://github.com/MiscMich/guesty-cli',
+    url='https://github.com/Villa-Paraiso-Vacation-Rentals/guesty-cli',
     packages=find_packages(),
-    package_data={
-        # Ship the API spec inside the package so `guesty raw --list/--search`
-        # works after install, not just from a checkout.
-        'guesty_cli': ['api-spec.json'],
-    },
     include_package_data=True,
     python_requires='>=3.8',
     entry_points={
@@ -25,7 +20,6 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
@@ -38,8 +32,8 @@ setup(
     ],
     keywords='guesty pms vacation rental cli automation',
     project_urls={
-        'Bug Reports': 'https://github.com/MiscMich/guesty-cli/issues',
-        'Source': 'https://github.com/MiscMich/guesty-cli',
-        'Documentation': 'https://github.com/MiscMich/guesty-cli/blob/main/README.md',
+        'Bug Reports': 'https://github.com/Villa-Paraiso-Vacation-Rentals/guesty-cli/issues',
+        'Source': 'https://github.com/Villa-Paraiso-Vacation-Rentals/guesty-cli',
+        'Documentation': 'https://github.com/Villa-Paraiso-Vacation-Rentals/guesty-cli/blob/main/README.md',
     },
 )

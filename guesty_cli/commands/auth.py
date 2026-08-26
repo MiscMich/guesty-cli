@@ -3,6 +3,7 @@ Authentication and setup commands for guesty-cli.
 """
 import os
 import sys
+from guesty_cli import __version__
 from guesty_cli.core.config import load_config, save_config, get_db_path
 from guesty_cli.core.client import GuestyClient
 from guesty_cli.core.output import print_header, green, red, yellow, cyan, bold
@@ -315,14 +316,15 @@ def run_auth_export(args):
     config = load_config()
 
     export_data = {
-        "guesty_cli_version": "0.2.0",
+        "guesty_cli_version": __version__,
         "account_name": config.get('account_name', ''),
         "client_id": config.get('client_id', ''),
         "api_base_url": config.get('api_base_url', 'https://open-api.guesty.com'),
     }
 
-    # Include secret only if user explicitly confirms
-    if getattr(args, 'include_secrets', False) or os.environ.get('GUESTY_NO_INPUT'):
+    # Non-interactive mode controls prompting; it must never imply consent to
+    # disclose credentials. Only the explicit command flag includes the secret.
+    if getattr(args, 'include_secrets', False):
         export_data['client_secret'] = config.get('client_secret', '')
         print("WARNING: exported file contains client_secret -- keep it safe!", file=sys.stderr)
 

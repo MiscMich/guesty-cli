@@ -6,6 +6,7 @@ Config stored at ~/.guesty-cli/config.json
 import json
 import os
 from pathlib import Path
+from typing import Tuple
 
 
 DEFAULT_CONFIG = {
@@ -160,7 +161,7 @@ def clear_token_cache() -> None:
     save_config(config)
 
 
-def get_cached_token() -> tuple[str, str]:
+def get_cached_token() -> Tuple[str, str]:
     """Get the cached token and its expiry.
     
     Returns:

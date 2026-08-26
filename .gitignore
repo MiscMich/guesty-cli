@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.venv/
 *.egg
 
 # Database
@@ -27,6 +28,3 @@ config.json
 .env
 *.csv
 *.json
-
-# But DO ship the API spec — it's how `guesty raw --list/--search` discovery works
-!**/api-spec.json
